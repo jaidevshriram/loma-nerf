@@ -11,6 +11,84 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 
+class Vec3:
+    x: float
+    y: float
+    z: float
+
+class Image:
+    data: list
+
+class Weights:
+    W1: list
+    b1: list
+    W2: list
+    b2: list
+
+class DWeights:
+    dW1: list
+    db1: list
+    dW2: list
+    db2: list
+
+def sigmoid(x: float) -> float:
+    return 1 / (1 + math.exp(-x))
+
+def sigmoid_derivative(x: float) -> float:
+    sig = sigmoid(x)
+    return sig * (1 - sig)
+
+def make_vec3(x: float, y: float, z: float) -> Vec3:
+    ret = Vec3()
+    ret.x = x
+    ret.y = y
+    ret.z = z
+    return ret
+
+def make_weights(input_size: int, hidden_size: int, output_size: int) -> Weights:
+    w = Weights()
+    w.W1 = []
+    i = 0
+    while i < hidden_size:
+        w.W1.append([])
+        j = 0
+        while j < input_size:
+            w.W1[i].append(random.uniform(-0.01, 0.01))
+            j += 1
+        i += 1
+    w.b1 = [0 for _ in range(hidden_size)]
+    w.W2 = []
+    i = 0
+    while i < output_size:
+        w.W2.append([])
+        j = 0
+        while j < hidden_size:
+            w.W2[i].append(random.uniform(-0.01, 0.01))
+            j += 1
+        i += 1
+    w.b2 = [0 for _ in range(output_size)]
+    return w
+
+def matmul(A: list, B: list) -> list:
+    result = []
+    i = 0
+    while i < len(A):
+        result.append(0)
+        j = 0
+        while j < len(B):
+            result[i] += A[i][j] * B[j]
+            j += 1
+        i += 1
+    return result
+
+def matadd(A: list, B: list) -> list:
+    result = []
+    i = 0
+    while i < len(A):
+        result.append(A[i] + B[i])
+        i += 1
+    return result
+
 def get_mlp_weights(layer_count: int):
     
     ws = []
@@ -75,5 +153,5 @@ if __name__ == '__main__':
     plt.ylabel('loss')
     plt.xlabel('iteration')
     plt.show()
-
     
+

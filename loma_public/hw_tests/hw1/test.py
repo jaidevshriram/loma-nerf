@@ -42,15 +42,14 @@ tests_to_run = [
     'test_array_output_indexing',
     'test_multiple_outputs',
     'test_struct_input',
-    'test_nested_struct_input', # Failing
+    'test_nested_struct_input', 
     'test_struct_output',
     'test_struct_declare',
     'test_struct_assign',
-    'test_nested_struct_output', # Failing
+    'test_nested_struct_output', 
     'test_array_in_struct', 
     'test_struct_in_array',
     'test_poly',
-    # END HW1: Add more custom tests
 ]
 
 class CustomTestLoader(unittest.TestLoader):

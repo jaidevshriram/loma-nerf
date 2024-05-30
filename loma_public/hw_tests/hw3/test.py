@@ -17,30 +17,30 @@ epsilon = 1e-4
 # Need to update call mutator
 
 tests_to_run = [
-    # 'test_ifelse_fwd',
-    # 'test_ifelse_rev',
-    # 'test_ifelse_side_effects_rev', # Failed
-    # 'test_nested_ifelse_rev', # Failed
-    # 'test_func_call_fwd',
-    # 'test_chained_calls_fwd',
-    # 'test_call_stmt_fwd',
-    # 'test_func_call_rev',
-    # 'test_func_call_rev2',
-    # 'test_func_call_assign_rev',
-    # 'test_call_array_rev',
-    # 'test_call_stmt_rev',
-    # 'test_call_stmt2_rev',
-    # 'test_call_stmt_side_effects',
-    # 'test_call_stmt_side_effects2',
-    # 'test_call_stmt_array_rev',
-    # 'test_chained_calls_rev', 
-    # 'test_while_loop_fwd',
-    'test_while_loop_rev', # Failed
-    # 'test_nested_while_loop_rev',
-    # 'test_three_level_while_loop_rev',
-    # 'test_parallel_copy',
-    # 'test_parallel_add',
-    # 'test_parallel_reduce'
+    'test_ifelse_fwd',
+    'test_ifelse_rev',
+    'test_ifelse_side_effects_rev', # Failed
+    'test_nested_ifelse_rev', # Failed
+    'test_func_call_fwd',
+    'test_chained_calls_fwd',
+    'test_call_stmt_fwd',
+    'test_func_call_rev',
+    'test_func_call_rev2',
+    'test_func_call_assign_rev',
+    'test_call_array_rev',
+    'test_call_stmt_rev',
+    'test_call_stmt2_rev',
+    'test_call_stmt_side_effects',
+    'test_call_stmt_side_effects2',
+    'test_call_stmt_array_rev',
+    'test_chained_calls_rev', 
+    'test_while_loop_fwd',
+    'test_while_loop_rev', 
+    'test_nested_while_loop_rev',
+    'test_three_level_while_loop_rev',
+    'test_parallel_copy',
+    'test_parallel_add',
+    'test_parallel_reduce'
 ]
 
 class CustomTestLoader(unittest.TestLoader):
