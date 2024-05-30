@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     # Create feature grid
     feature_grid_dims = (32, 32)
-    feature_grid = np.random.randn(feature_grid_dims[0] + 1, feature_grid_dims[1] + 1, 16).astype(np.float32)
+    feature_grid = np.random.randn(feature_grid_dims[0], feature_grid_dims[1], 3).astype(np.float32)
 
     # Define the rendering function and the gradient function
     f = lib.mlp_fit

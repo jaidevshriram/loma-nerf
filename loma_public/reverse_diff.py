@@ -4,6 +4,7 @@ import _asdl.loma as loma_ir
 import irmutator
 import autodiff
 import string
+import pdb
 import random
 import pretty_print
 
@@ -97,6 +98,14 @@ def reverse_diff(diff_func_id : str,
                                 target_m, loma_ir.ConstInt(i), t = m.t.t)
                             stmts += assign_zero(target_m)
                 return stmts
+            case loma_ir.Array():
+                # Go through each element of the array and zero it
+                stmts = []
+                for i in range(target.t.static_size):
+                    target_i = loma_ir.ArrayAccess(
+                        target, loma_ir.ConstInt(i), t = target.t.t)
+                    stmts += assign_zero(target_i)
+                return stmts
             case _:
                 assert False
 
@@ -136,7 +145,19 @@ def reverse_diff(diff_func_id : str,
                                 deriv_m, loma_ir.ConstInt(i), t = m.t.t)
                             stmts += accum_deriv(target_m, deriv_m, overwrite)
                 return stmts
+
+            case loma_ir.Array():
+                # Go through each element of the array and overwrite
+                stmts = []
+                for i in range(target.t.static_size):
+                    target_i = loma_ir.ArrayAccess(
+                        target, loma_ir.ConstInt(i), t = target.t.t)
+                    deriv_i = loma_ir.ArrayAccess(
+                        deriv, loma_ir.ConstInt(i), t = deriv.t.t)
+                    stmts += accum_deriv(target_i, deriv_i, overwrite)
+                return stmts
             case _:
+                pdb.set_trace()
                 assert False
 
     def check_lhs_is_output_arg(lhs, output_args):
