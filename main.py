@@ -4,7 +4,7 @@ current = os.path.dirname(os.path.realpath(__file__))
 loma_dir = os.path.join(current, 'loma_public')
 sys.path.append(loma_dir)
 
-import torch
+# import torch
 import compiler
 import ctypes
 import numpy as np
@@ -17,8 +17,8 @@ def get_mlp_weights(layer_count: int):
     bs = []
     
     for i in range(layer_count):
-        ws.append(torch.randn(14, 14).numpy().astype(np.float32))
-        bs.append(torch.randn(14).numpy().astype(np.float32))
+        ws.append(np.random.randn(16, 16).astype(np.float32))
+        bs.append(np.random.randn(16).astype(np.float32))
 
     return ws, bs
 
@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     # Create feature grid
     feature_grid_dims = (32, 32)
-    feature_grid = np.random.randn(feature_grid_dims[0] + 1, feature_grid_dims[1] + 1, 14).astype(np.float32)
+    feature_grid = np.random.randn(feature_grid_dims[0] + 1, feature_grid_dims[1] + 1, 16).astype(np.float32)
 
     # Define the rendering function and the gradient function
     f = lib.mlp_fit
