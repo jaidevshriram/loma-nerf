@@ -3,14 +3,29 @@ ir.generate_asdl_file()
 import _asdl.loma as loma_ir
 import itertools
 
-def flatten(nested_list : list):
-    # recursively flatten a nested list
-    if len(nested_list) == 0:
-        return nested_list
-    if isinstance(nested_list[0], list):
-        return flatten(nested_list[0]) + flatten(nested_list[1:])
-    else:
-        return nested_list[:1] + flatten(nested_list[1:])
+# def flatten(nested_list : list):
+#     # recursively flatten a nested list
+#     if len(nested_list) == 0:
+#         return nested_list
+#     if isinstance(nested_list[0], list):
+#         return flatten(nested_list[0]) + flatten(nested_list[1:])
+#     else:
+#         return nested_list[:1] + flatten(nested_list[1:])
+    
+def flatten(nested_list: list):
+    # Iteratively flatten a nested list
+    stack = nested_list[:]
+    flat_list = []
+    
+    while stack:
+        item = stack.pop(0)
+        if isinstance(item, list):
+            stack = item + stack
+        else:
+            flat_list.append(item)
+    
+    return flat_list
+
 
 class IRMutator:
     """ Visitor pattern: we use IRMutator to take a loma IR code,
