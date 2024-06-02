@@ -72,6 +72,38 @@ def reverse_diff(diff_func_id : str,
             case _:
                 assert False
 
+    def copy_array(target, source):
+
+        og_target = target
+        og_source = source
+
+        static_sizes = []
+        num_dimensions = 0
+
+        while isinstance(target.t, loma_ir.Array) and isinstance(source.t, loma_ir.Array):
+            static_sizes.append(target.t.static_size)
+            target = target.t
+            source = source.t
+            num_dimensions += 1
+
+        stmts = []
+        
+        # Copy each element of the array by indexing along all the static sizes
+        def copy_multidimensional_array(target, source, indices):
+            if len(indices) == num_dimensions:
+                stmts.append(loma_ir.Assign(target, source))
+            else:
+                for i in range(static_sizes[len(indices)]):
+                    
+                    copy_multidimensional_array(
+                        loma_ir.ArrayAccess(target, loma_ir.ConstInt(i), t = target.t),
+                        loma_ir.ArrayAccess(source, loma_ir.ConstInt(i), t = source.t),
+                        indices + [i])
+
+        copy_multidimensional_array(og_target, og_source, [])
+
+        return stmts
+
     def assign_zero(target):
         match target.t:
             case loma_ir.Int():
@@ -152,6 +184,12 @@ def reverse_diff(diff_func_id : str,
                 for i in range(target.t.static_size):
                     target_i = loma_ir.ArrayAccess(
                         target, loma_ir.ConstInt(i), t = target.t.t)
+
+                    print(deriv)
+
+                    # if deriv.t is None:
+                    #     deriv.t = target.t
+
                     deriv_i = loma_ir.ArrayAccess(
                         deriv, loma_ir.ConstInt(i), t = deriv.t.t)
                     stmts += accum_deriv(target_i, deriv_i, overwrite)
@@ -292,6 +330,9 @@ def reverse_diff(diff_func_id : str,
             if node.t != loma_ir.Int():
                 dvar = '_d' + node.target + '_' + random_id_generator()
                 self.var_to_dvar[node.target] = dvar
+
+                # pdb.set_trace()
+
                 return [node, loma_ir.Declare(\
                     dvar,
                     node.t,
@@ -493,6 +534,7 @@ def reverse_diff(diff_func_id : str,
             for t, exprs in fm.cache_vars_list.items():
                 t_str = type_to_string(t)
                 stack_name, stack_ptr_name = self.type_to_stack_and_ptr_names[t_str]
+
                 tmp_declares.append(loma_ir.Declare(stack_name,
                     loma_ir.Array(t, self.type_cache_size[t])))
                 tmp_declares.append(loma_ir.Declare(stack_ptr_name,
@@ -605,7 +647,12 @@ def reverse_diff(diff_func_id : str,
                         stmts.append(loma_ir.Assign(stack_ptr_var,
                             loma_ir.BinaryOp(loma_ir.Sub(), stack_ptr_var, loma_ir.ConstInt(1))))
                         cache_var_expr, cache_target = self.cache_vars_list[f_arg.t].pop()
-                        stmts.append(loma_ir.Assign(cache_target, cache_var_expr))
+
+                        # Check if the cache_var_expr is an array 
+                        if isinstance(cache_var_expr.t, loma_ir.Array):
+                            stmts.append(copy_array(cache_target, cache_var_expr))
+                        else:
+                            stmts.append(loma_ir.Assign(cache_target, cache_var_expr))
 
             # Accumulate derivatives
             stmts += self.mutate_expr(node.call)

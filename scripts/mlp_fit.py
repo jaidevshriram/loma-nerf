@@ -139,10 +139,25 @@ def mse(
 
     return output
 
+def copy_a_to_b(
+    a: In[Array[Array[float, 3], 256]],
+    b: Out[Array[Array[float, 3], 256]]
+):
+
+    i: int = 0
+    j: int = 0
+
+    while (i < 256, max_iter := 256):
+        j = 0
+        while (j < 3, max_iter := 3):
+            b[i][j] = a[i][j]
+            j = j + 1
+        i = i + 1
+
 def mlp_fit(
     x: In[Array[Array[float, 3], 256]],
     ws: In[Array[Array[Array[float, 3], 3], 3]],
-    bs: In[Array[Array[float, 3], 3]],
+    bs: In[Array[Array[Array[float, 3], 3]]],
     target_image: In[Array[Array[float, 3], 256]],
     target_image_h: In[int],
     target_image_w: In[int]
@@ -156,7 +171,9 @@ def mlp_fit(
     layouer_counter: int = 0
     num_layers: int = 3
 
-    layer_input: Array[Array[float, 3], 256] = x # 256 x 3
+    layer_input: Array[Array[float, 3], 256] # 256 x 3
+    copy_a_to_b(x, layer_input)
+    
     layer_output: Array[Array[float, 3], 256]
 
     weight: Array[Array[float, 3], 3] # 3 x 3
@@ -164,25 +181,27 @@ def mlp_fit(
 
     while (layouer_counter < num_layers, max_iter := 3):
 
-        weight = ws[layouer_counter] # 3 x 3
-        bias = bs[layouer_counter] # 3
+        copy_a_to_b(ws[layouer_counter], weight) # 3 x 3
+        copy_a_to_b(bs[layouer_counter], bias) # 3
 
-        # Multiply layer input with weights and add the bias
-        layer_output = matvecmult(weight, layer_input)
-        layer_output = matvecadd(layer_output, bias)
+    #     # Multiply layer input with weights and add the bias
+    #     layer_output = matvecmult(weight, layer_input)
+    #     # layer_output = matvecadd(layer_output, bias)
 
-        # Apply ReLU activation function
-        layer_output = relu(layer_output)
+    #     # Apply ReLU activation function
+    #     # layer_output = relu(layer_output)
 
-        # Update layer input
-        layer_input = layer_output
+    #     # Update layer input
+    #     layer_input = layer_output
 
-        # Update layer counter
+    #     # Update layer counter
         layouer_counter = layouer_counter + 1
 
     # Compute loss
-    loss: float = mse(layer_output, target_image)
+    # loss: float = mse(layer_input, target_image)
+    loss: float = 0
 
     return loss
 
 grad_mlp_fit = rev_diff(mlp_fit)
+# grad_mlp_fit = fwd_diff(mlp_fit)
