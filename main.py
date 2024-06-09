@@ -116,6 +116,53 @@ def convert_ndim_array_to_ndim_ctypes(arr):
     else:
         raise ValueError("Unsupported number of dimensions")
 
+def lp_lp_lp_c_float_to_numpy(lp_lp_lp_c_float, shape):
+    """
+    Convert a LP_LP_LP_c_float to a NumPy array.
+
+        @param lp_lp_lp_c_float: The LP_LP_LP_c_float object
+        @param shape: Tuple representing the shape of the 3D array (depth, rows, columns)
+        
+        @return: NumPy array
+    """
+    depth, rows, columns = shape
+    array_3d = np.zeros(shape, dtype=np.float32)
+    
+    for d in range(depth):
+        for r in range(rows):
+            for c in range(columns):
+                array_3d[d, r, c] = lp_lp_lp_c_float[d][r][c]
+    
+    return array_3d
+
+def lp_lp_c_float_to_numpy(lp_lp_c_float, shape):
+    """
+    Convert a LP_LP_c_float to a NumPy array.
+
+        @param lp_lp_c_float: The LP_LP_c_float object
+        @param shape: Tuple representing the shape of the 2D array (rows, columns)
+        
+        @return: NumPy array
+    """
+    rows, columns = shape
+    array_2d = np.zeros(shape, dtype=np.float32)
+    
+    for r in range(rows):
+        for c in range(columns):
+            array_2d[r, c] = lp_lp_c_float[r][c]
+    
+    return array_2d
+
+# Example usage:
+# Assuming `lp_lp_lp_c_float` is a ctypes object of type LP_LP_LP_c_float
+# and the shape of the 3D array is known
+# lp_lp_lp_c_float = some_ctypes_function_that_returns_LP_LP_LP_c_float()
+# shape = (depth, rows, columns)
+
+# array = lp_lp_lp_c_float_to_numpy(lp_lp_lp_c_float, shape)
+# print(array)
+
+
 def get_linear_weight(in_channels, out_channels):
     """
         @param in_channels: The number of input channels
@@ -271,7 +318,7 @@ if __name__ == "__main__":
     intermediate_outputs = np.zeros((num_layers, intermediate_shape_max_dims, intermediate_shape_max_dims), dtype=np.float32)
 
     # Gradient descent loop
-    step_size = 1e-2
+    step_size = 1e-4
     # pdb.set_trace()
     loss = [
         f(
@@ -306,7 +353,7 @@ if __name__ == "__main__":
         )
     ]
 
-    for i in range(1000):
+    for i in range(10):
 
         d_input_coords = np.zeros_like(input_coords, dtype=np.float32)
         d_input_height = ctypes.c_int(input_coords.shape[0])
@@ -325,12 +372,13 @@ if __name__ == "__main__":
         d_return = 100.0
 
         # Make all the non array derivatives - ctypes.byref(...)
-        # d_input_height = ctypes.byref(d_input_height)
-        # d_input_width = ctypes.byref(d_input_width)
-        # d_target_height = ctypes.byref(d_target_height)
-        # d_target_width = ctypes.byref(d_target_width)
-        # d_num_layers = ctypes.byref(d_num_layers)
-        # d_return = ctypes.byref(d_return)
+        d_input_height = ctypes.byref(d_input_height)
+        d_input_width = ctypes.byref(d_input_width)
+        d_target_height = ctypes.byref(d_target_height)
+        d_target_width = ctypes.byref(d_target_width)
+        d_num_layers = ctypes.byref(d_num_layers)
+        d_ws = convert_ndim_array_to_ndim_ctypes(d_ws)
+        d_bs = convert_ndim_array_to_ndim_ctypes(d_bs)
 
         grad_f(
             # The input to the MLP
@@ -352,11 +400,11 @@ if __name__ == "__main__":
             # The weights array of shape N x weight_shape[0] x weight_shape[1]
             convert_ndim_array_to_ndim_ctypes(ws_padded),
             # The derivative of the loss w.r.t. the weights
-            convert_ndim_array_to_ndim_ctypes(d_ws),
+            d_ws,
             # The bias array of shape N x bias_shape[0]
             convert_ndim_array_to_ndim_ctypes(bs_padded),
             # The derivative of the loss w.r.t. the biases
-            convert_ndim_array_to_ndim_ctypes(d_bs),
+            d_bs,
             # The target image tensor
             convert_ndim_array_to_ndim_ctypes(target_color_gt),
             # The derivative of the loss w.r.t. the target
@@ -392,18 +440,22 @@ if __name__ == "__main__":
             # The return value
             loss[-1]
         )
-    #     gx = np.zeros_like(feature_grid, dtype=np.float32)
-    #     gw = np.zeros_like(ws, dtype=np.float32)
-    #     gb = np.zeros_like(bs, dtype=np.float32)
-    #     gtarget = np.zeros_like(target_image_np, dtype=np.float32)
-    #     gwidth = ctypes.c_int(target_image_np.shape[0])
-    #     gheight = ctypes.c_int(target_image_np.shape[1])
-    #     greturn = ctypes.c_float(0.0)
+
+        # Print gradient stats - min, max, mean
+        d_ws_padded = lp_lp_lp_c_float_to_numpy(d_ws, ws_padded.shape)
+        d_bs_padded = lp_lp_c_float_to_numpy(d_bs, bs_padded.shape)
+
+        print(f"Gradient stats for all derivatives:")
+        print("Input coords: ", np.min(d_input_coords), np.max(d_input_coords), np.mean(d_input_coords))
+        print("Output tensor: ", np.min(d_output), np.max(d_output), np.mean(d_output))
+        print("Weights: ", np.min(d_ws_padded), np.max(d_ws_padded), np.mean(d_ws_padded))
+        print("Biases: ", np.min(d_bs_padded), np.max(d_bs_padded), np.mean(d_bs_padded))
+        print("Target: ", np.min(d_target), np.max(d_target), np.mean(d_target))
+        print("Intermediate outputs: ", np.min(d_intermediate_outputs), np.max(d_intermediate_outputs), np.mean(d_intermediate_outputs))
 
         # Take optimizer steps for weights and biases
-        for i in range(num_layers):
-            ws[i] -= step_size * d_ws[i]
-            bs[i] -= step_size * d_bs[i]
+        ws_padded -= step_size * d_ws_padded
+        bs_padded -= step_size * d_bs_padded
 
         step_loss = f(
             # The input to the MLP
@@ -438,9 +490,7 @@ if __name__ == "__main__":
 
         loss.append(step_loss)
 
-        break
-
-    # plt.plot(np.arange(len(loss)), np.array(loss))
-    # plt.ylabel("loss")
-    # plt.xlabel("iteration")
-    # plt.show()
+    plt.plot(np.arange(len(loss)), np.array(loss))
+    plt.ylabel("loss")
+    plt.xlabel("iteration")
+    plt.show()

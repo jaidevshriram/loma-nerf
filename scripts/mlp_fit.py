@@ -4,7 +4,7 @@ def mlp_fit(
     layer_input_w: In[int], # The width of the input
     layer_output: In[Array[Array[float]]], # The output of the layer - just initialized outside to get the shape correct
     ws: In[Array[Array[Array[float]]]], # The weights array of shape N x weight_shape[0] x weight_shape[1]
-    bs: In[Array[Array[Array[float]]]], # The bias array of shape N x bias_shape[0]
+    bs: In[Array[Array[float]]], # The bias array of shape N x bias_shape[0]
     target_image: In[Array[Array[float]]], # The target image tensor
     target_image_h: In[int], # The height of the target image tensor
     target_image_w: In[int], # The width of the target image tensor
@@ -21,7 +21,6 @@ def mlp_fit(
     batch_num: int = 0
 
     layer_counter: int = 0
-    num_layers: int = 3
 
     # For matvecmult
     i_mult: int = 0
@@ -34,7 +33,7 @@ def mlp_fit(
     i_mse: int = 0
     j_mse: int = 0
     
-    while (layer_counter < num_layers, max_iter := 1000):
+    while (layer_counter < num_weights, max_iter := 1000):
 
     #     # Multiply layer input with weights and add the bias
     #     # if layer_counter == 0:
@@ -55,7 +54,7 @@ def mlp_fit(
                     while (j_mult < weight_shapes[layer_counter][1], max_iter := 5):
                         k_mult = 0
                         while (k_mult < layer_input_w, max_iter := 5):
-                            intermediate_outputs[layer_counter][i_mult][j_mult] = intermediate_outputs[layer_counter][i_mult][j_mult] + ws[layer_counter][i_mult][j_mult] * layer_input[i_mult][k_mult]
+                            intermediate_outputs[layer_counter][i_mult][j_mult] = intermediate_outputs[layer_counter][i_mult][j_mult] + ws[layer_counter][i_mult][j_mult] * layer_input[i_mult][k_mult] + bs[layer_counter][i_mult]
                             k_mult = k_mult + 1
                         j_mult = j_mult + 1
                     i_mult = i_mult + 1
@@ -66,32 +65,30 @@ def mlp_fit(
             k_mult = 0
 
             while (i_mult < weight_shapes[layer_counter][0], max_iter := 1):
-                    # j_mult = 0
-            #         while (j_mult < weight_shapes[layer_counter][1], max_iter := 1):
-            #             k_mult = 0
-            # #             while (k_mult < intermediate_output_shapes[layer_counter - 1][1], max_iter := 1):
-            # #                 intermediate_outputs[layer_counter][i_mult][j_mult] = 0
-            # # # intermediate_outputs[layer_counter][i_mult][j_mult] + ws[layer_counter][i_mult][j_mult] * intermediate_outputs[layer_counter - 1][i_mult][k_mult]
-            # #                 k_mult = k_mult + 1
-            #             j_mult = j_mult + 1
+                    j_mult = 0
+                    while (j_mult < weight_shapes[layer_counter][1], max_iter := 1):
+                        k_mult = 0
+                        while (k_mult < intermediate_output_shapes[layer_counter - 1][1], max_iter := 1):
+                            intermediate_outputs[layer_counter][i_mult][j_mult] = intermediate_outputs[layer_counter][i_mult][j_mult] + ws[layer_counter][i_mult][j_mult] * intermediate_outputs[layer_counter - 1][i_mult][k_mult] + bs[layer_counter][i_mult]
+                            k_mult = k_mult + 1
+                        j_mult = j_mult + 1
                     i_mult = i_mult + 1
 
     #     # ==============
     #     # ReLU
-    #     # TODO: Broken - segfault atm
     #     # ==============
-    #     i_relu = 0
-    #     j_relu = 0
+        # i_relu = 0
+        # j_relu = 0
 
-    #     while (i_relu < intermediate_output_shapes[layer_counter][0], max_iter := 500):
-    #         j_relu = 0
-    #         while (j_relu < intermediate_output_shapes[layer_counter][1], max_iter := 5):
-    #             if intermediate_outputs[layer_counter][i_relu][j_relu] > 0:
-    #                 intermediate_outputs[layer_counter][i_relu][j_relu] = intermediate_outputs[layer_counter][i_relu][j_relu]
-    #             else:
-    #                 intermediate_outputs[layer_counter][i_relu][j_relu] = 0
-    #             j_relu = j_relu + 1
-    #         i_relu = i_relu + 1
+        # while (i_relu < intermediate_output_shapes[layer_counter][0], max_iter := 280):
+        #     j_relu = 0
+        #     while (j_relu < intermediate_output_shapes[layer_counter][1], max_iter := 5):
+        #         if intermediate_outputs[layer_counter][i_relu][j_relu] > 0:
+        #             intermediate_outputs[layer_counter][i_relu][j_relu] = intermediate_outputs[layer_counter][i_relu][j_relu]
+        #         else:
+        #             intermediate_outputs[layer_counter][i_relu][j_relu] = 0
+        #         j_relu = j_relu + 1
+        #     i_relu = i_relu + 1
 
         # Update layer counter
         layer_counter = layer_counter + 1
@@ -105,7 +102,7 @@ def mlp_fit(
     while (i_mse < target_image_h, max_iter := 500):
         j_mse = 0
         while (j_mse < target_image_w, max_iter := 5):
-            loss = loss + (layer_input[i_mse][j_mse] - target_image[i_mse][j_mse]) * (layer_input[i_mse][j_mse] - target_image[i_mse][j_mse])
+            loss = loss + (intermediate_outputs[num_weights - 1][i_mse][j_mse] - target_image[i_mse][j_mse]) * (intermediate_outputs[num_weights - 1][i_mse][j_mse] - target_image[i_mse][j_mse])
             j_mse = j_mse + 1
         i_mse = i_mse + 1
 
