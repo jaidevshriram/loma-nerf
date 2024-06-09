@@ -106,6 +106,7 @@ class CCodegenVisitor(irvisitor.IRVisitor):
             # Special rule for arrays
             assert node.t.static_size != None
             self.code += f'{type_to_string(node.t.t)} {node.target}[{node.t.static_size}]'
+            # self.code += f'{type_to_string(node.t.t)}* {node.target} = malloc({node.t.static_size} * sizeof({type_to_string(node.t.t)}))'
         if node.val is not None:
             self.code += f' = {self.visit_expr(node.val)};\n'
         else:

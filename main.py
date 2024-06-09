@@ -438,7 +438,9 @@ if __name__ == "__main__":
 
         loss.append(step_loss)
 
-    plt.plot(np.arange(len(loss)), np.array(loss))
-    plt.ylabel("loss")
-    plt.xlabel("iteration")
-    plt.show()
+        break
+
+    # plt.plot(np.arange(len(loss)), np.array(loss))
+    # plt.ylabel("loss")
+    # plt.xlabel("iteration")
+    # plt.show()
