@@ -292,7 +292,7 @@ if __name__ == "__main__":
     target_color_gt = np.ascontiguousarray(target_color_gt)
 
     # Create the MLP
-    num_layers = 1
+    num_layers = 3
     in_channels = 2
     out_channels = 3
     ws, bs = get_sample_mlp(in_channels=in_channels, out_channels=out_channels, num_layers=num_layers)
@@ -318,8 +318,7 @@ if __name__ == "__main__":
     intermediate_outputs = np.zeros((num_layers, intermediate_shape_max_dims, intermediate_shape_max_dims), dtype=np.float32)
 
     # Gradient descent loop
-    step_size = 1e-4
-    # pdb.set_trace()
+    step_size = 1e-6
     loss = [
         f(
             # The input to the MLP
@@ -353,7 +352,9 @@ if __name__ == "__main__":
         )
     ]
 
-    for i in range(10):
+    NUM_STEPS = 1000
+
+    for i in range(NUM_STEPS):
 
         d_input_coords = np.zeros_like(input_coords, dtype=np.float32)
         d_input_height = ctypes.c_int(input_coords.shape[0])
@@ -369,7 +370,6 @@ if __name__ == "__main__":
         d_bs_shape = np.zeros_like(bs_shape, dtype=np.int32)
         d_intermediate_shapes = np.zeros_like(intermediate_shapes, dtype=np.int32)
         d_intermediate_outputs = np.zeros_like(intermediate_outputs, dtype=np.float32)
-        d_return = 100.0
 
         # Make all the non array derivatives - ctypes.byref(...)
         d_input_height = ctypes.byref(d_input_height)
@@ -445,13 +445,13 @@ if __name__ == "__main__":
         d_ws_padded = lp_lp_lp_c_float_to_numpy(d_ws, ws_padded.shape)
         d_bs_padded = lp_lp_c_float_to_numpy(d_bs, bs_padded.shape)
 
-        print(f"Gradient stats for all derivatives:")
-        print("Input coords: ", np.min(d_input_coords), np.max(d_input_coords), np.mean(d_input_coords))
-        print("Output tensor: ", np.min(d_output), np.max(d_output), np.mean(d_output))
-        print("Weights: ", np.min(d_ws_padded), np.max(d_ws_padded), np.mean(d_ws_padded))
-        print("Biases: ", np.min(d_bs_padded), np.max(d_bs_padded), np.mean(d_bs_padded))
-        print("Target: ", np.min(d_target), np.max(d_target), np.mean(d_target))
-        print("Intermediate outputs: ", np.min(d_intermediate_outputs), np.max(d_intermediate_outputs), np.mean(d_intermediate_outputs))
+        # print(f"Gradient stats for all derivatives:")
+        # print("Input coords: ", np.min(d_input_coords), np.max(d_input_coords), np.mean(d_input_coords))
+        # print("Output tensor: ", np.min(d_output), np.max(d_output), np.mean(d_output))
+        # print("Weights: ", np.min(d_ws_padded), np.max(d_ws_padded), np.mean(d_ws_padded))
+        # print("Biases: ", np.min(d_bs_padded), np.max(d_bs_padded), np.mean(d_bs_padded))
+        # print("Target: ", np.min(d_target), np.max(d_target), np.mean(d_target))
+        # print("Intermediate outputs: ", np.min(d_intermediate_outputs), np.max(d_intermediate_outputs), np.mean(d_intermediate_outputs))
 
         # Take optimizer steps for weights and biases
         ws_padded -= step_size * d_ws_padded
