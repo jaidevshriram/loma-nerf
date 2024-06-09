@@ -169,6 +169,7 @@ def reverse_diff(diff_func_id : str,
                         stmts += accum_deriv(target_m, deriv_m, overwrite)
                     else:
                         assert isinstance(m.t, loma_ir.Array)
+                        # TODO: Inocrrectly implemented
                         assert m.t.static_size is not None
                         for i in range(m.t.static_size):
                             target_m = loma_ir.ArrayAccess(
@@ -179,21 +180,22 @@ def reverse_diff(diff_func_id : str,
                 return stmts
 
             case loma_ir.Array():
-                # Go through each element of the array and overwrite
-                stmts = []
-                for i in range(target.t.static_size):
-                    target_i = loma_ir.ArrayAccess(
-                        target, loma_ir.ConstInt(i), t = target.t.t)
+                pass
+                # # Go through each element of the array and overwrite
+                # stmts = []
 
-                    print(deriv)
+                # # TODO: Implement this correctly
 
-                    # if deriv.t is None:
-                    #     deriv.t = target.t
+                # for i in range(target.t.static_size):
+                #     target_i = loma_ir.ArrayAccess(
+                #         target, loma_ir.ConstInt(i), t = target.t.t)
 
-                    deriv_i = loma_ir.ArrayAccess(
-                        deriv, loma_ir.ConstInt(i), t = deriv.t.t)
-                    stmts += accum_deriv(target_i, deriv_i, overwrite)
-                return stmts
+                #     print(deriv)
+
+                #     deriv_i = loma_ir.ArrayAccess(
+                #         deriv, loma_ir.ConstInt(i), t = deriv.t.t)
+                #     stmts += accum_deriv(target_i, deriv_i, overwrite)
+                # return stmts
             case _:
                 pdb.set_trace()
                 assert False
@@ -650,7 +652,9 @@ def reverse_diff(diff_func_id : str,
 
                         # Check if the cache_var_expr is an array 
                         if isinstance(cache_var_expr.t, loma_ir.Array):
-                            stmts.append(copy_array(cache_target, cache_var_expr))
+                            # TODO: Implement copy array
+                            # stmts.append(copy_array(cache_target, cache_var_expr))
+                            pass
                         else:
                             stmts.append(loma_ir.Assign(cache_target, cache_var_expr))
 
@@ -952,13 +956,56 @@ def reverse_diff(diff_func_id : str,
                     stmts = []
                     for i, f_arg in enumerate(f.args):
                         arg_expr = node.args[i]
-                        assert isinstance(arg_expr, loma_ir.Var)
+                        print(arg_expr)
+                        assert isinstance(arg_expr, loma_ir.Var) or isinstance(arg_expr, loma_ir.ArrayAccess) or isinstance(arg_expr, loma_ir.StructAccess)
                         if f_arg.i == loma_ir.In():
                             new_args.append(arg_expr)
-                            new_args.append(loma_ir.Var(self.var_to_dvar[arg_expr.id], t = f_arg.t))
+
+                            if isinstance(arg_expr, loma_ir.Var):
+                                new_args.append(loma_ir.Var(self.var_to_dvar[arg_expr.id], t = f_arg.t))
+                            elif isinstance(arg_expr, loma_ir.ArrayAccess):
+
+                                new_arg = self.mutate_expr(arg_expr)
+                                pdb.set_trace()
+                                new_args.append(new_arg)
+                                # pass
+
+                                # # assert False, "Not converted to dtype"
+                                # dvar_array = loma_ir.Var(self.var_to_dvar[arg_expr.array.id], t = loma_ir.Array(f_arg.t, arg_expr.array.t.static_size))
+                                # new_args.append(loma_ir.ArrayAccess(dvar_array, arg_expr.index, t = f_arg.t))
+
+                                # temp_arg_expr = arg_expr
+                                # while isinstance(temp_arg_expr, loma_ir.ArrayAccess):
+                                #     temp_arg_expr = temp_arg_expr.array
+                                # dvar_array = loma_ir.Var(self.var_to_dvar[temp_arg_expr.id], t = loma_ir.Array(f_arg.t, temp_arg_expr.t.static_size))
+
+                                # # Create a new array access to the dvar array - replace the innermost array access with the dvar array
+                                # pdb.set_trace()
+                                # temp_arg_expr = arg_expr
+                                # new_expr = arg_expr
+                                # while isinstance(temp_arg_expr, loma_ir.ArrayAccess):
+                                #     temp_arg_expr = temp_arg_expr.array
+
+                            elif isinstance(arg_expr, loma_ir.StructAccess):
+                                assert False, "Not converted to dtype"
+                                new_args.append(loma_ir.StructAccess(arg_expr.struct, arg_expr.member, t = f_arg.t))
+                            else:
+                                assert False
                         else:
                             assert f_arg.i == loma_ir.Out()
-                            new_args.append(loma_ir.Var(self.var_to_dvar[arg_expr.id], t = f_arg.t))
+
+                            if isinstance(arg_expr, loma_ir.Var):
+                                new_args.append(loma_ir.Var(self.var_to_dvar[arg_expr.id], t = f_arg.t))
+                            elif isinstance(arg_expr, loma_ir.ArrayAccess):
+                                # assert False, "Not converted to dtype"
+                                new_arg = self.mutate_expr(arg_expr)
+                                new_args.append(new_arg)
+                            elif isinstance(arg_expr, loma_ir.StructAccess):
+                                assert False, "Not converted to dtype"
+                                new_args.append(loma_ir.StructAccess(arg_expr.struct, arg_expr.member, t = f_arg.t))
+                            else:
+                                assert False
+                            
                     if f.ret_type is not None:
                         new_args.append(self.adj)
 

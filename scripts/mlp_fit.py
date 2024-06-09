@@ -1,166 +1,18 @@
-# def matmult(
-#     a: In[Array[Array[float]]],
-#     b: In[Array[Array[float]]]
-# ) -> Out[Array[Array[float]]]:
-
-#     output: Array[Array[float, 100], 100]
-
-#     i = 0
-#     while (i < 16, max_iter := 100):
-#         j = 0
-#         while (j < 16, max_iter := 100):
-#             k = 0
-#             while (k < 16, max_iter := 100):
-#                 output[i][j] = output[i][j] + a[i][k] * b[k][j]
-#                 k = k + 1
-#             j = j + 1
-#         i = i + 1
-
-#     return output
-
-def matvecmult(
-    a: In[Array[Array[float, 3], 3]], # The weight usually has shape (3 x 3)
-    b: In[Array[Array[float, 3], 256]] # The input usually has shape (256, 3)
-) -> Out[Array[Array[float, 3], 256]]:
-
-    output: Array[Array[float, 3], 256] # The output usually has shape (256, 3)
-
-    # Essentialyl, compute b @ a
-    i: int = 0 # Row iterator
-    j: int = 0 # Column iterator
-    k: int = 0 # Inner iterator
-
-    while (i < 256, max_iter := 256):
-
-        j = 0
-        while (j < 3, max_iter := 3):
-
-            k = 0
-            while (k < 3, max_iter := 3):
-                output[i][j] = output[i][j] + a[j][k] * b[i][k]
-                k = k + 1
-            
-            j = j + 1
-        
-        i = i + 1
-
-    return output
-
-def matvecadd(
-    a: In[Array[Array[float, 3], 256]], # The image usually has shape (256, 3)
-    b: In[Array[float, 3]]  # The bias usually has shape (3,)
-) -> Out[Array[Array[float, 3], 256]]:
-
-    output: Array[Array[float, 3], 256] # The output usually has shape (256, 3)
-
-    i: int = 0
-    j: int = 0
-
-    while (i < 256, max_iter := 256):
-        j = 0
-        while (j < 3, max_iter := 3):
-            output[i][j] = a[i][j] + b[j]
-            j = j + 1
-        i = i + 1
-
-    return output
-
-# def matmatadd(
-#     a: In[Array[Array[float]]], # The weight usually has shape (3 x 3)
-#     b: In[Array[Array[float]]] # The bias usually has shape (3,)
-# ) -> Out[Array[Array[float]]]:
-    
-#     output: Array[Array[float, 100], 100]
-
-#     i: int = 0
-#     j: int = 0
-
-#     while (i < 16, max_iter := 100):
-#         j = 0
-#         while (j < 16, max_iter := 100):
-#             output[i][j] = a[i][j] + b[i][j]
-#             j = j + 1
-#         i = i + 1
-
-#     return output
-
-def vecvecadd(
-    a: In[Array[float, 3]],
-    b: In[Array[float, 3]]
-) -> Out[Array[float, 3]]:
-        
-        output: Array[float, 3]
-    
-        i: int = 0
-    
-        while (i < 3, max_iter := 3):
-            output[i] = a[i] + b[i]
-            i = i + 1
-    
-        return output
-
-def relu(
-    x: In[Array[Array[float, 3], 256]]
-) -> Out[Array[Array[float, 3], 256]]:
-
-    output: Array[Array[float, 3], 256]
-
-    i: int = 0
-    j: int = 0
-
-    while (i < 256, max_iter := 256):
-        j = 0
-        while (j < 3, max_iter := 3):
-            if x[i][j] > 0:
-                output[i][j] = x[i][j]
-            else:
-                output[i][j] = 0
-            j = j + 1
-        i = i + 1
-
-    return output
-
-def mse(
-    x: In[Array[Array[float, 3], 256]],
-    y: In[Array[Array[float, 3], 256]]
-) -> Out[float]:
-
-    output: float = 0
-
-    i: int = 0
-    j: int = 0
-
-    while (i < 256, max_iter := 256):
-        j = 0
-        while (j < 3, max_iter := 3):
-            output = output + (x[i][j] - y[i][j]) * (x[i][j] - y[i][j])
-            j = j + 1
-        i = i + 1
-
-    return output
-
-def copy_a_to_b(
-    a: In[Array[Array[float, 3], 256]],
-    b: Out[Array[Array[float, 3], 256]]
-):
-
-    i: int = 0
-    j: int = 0
-
-    while (i < 256, max_iter := 256):
-        j = 0
-        while (j < 3, max_iter := 3):
-            b[i][j] = a[i][j]
-            j = j + 1
-        i = i + 1
-
 def mlp_fit(
-    x: In[Array[Array[float, 3], 256]],
-    ws: In[Array[Array[Array[float, 3], 3], 3]],
-    bs: In[Array[Array[Array[float, 3], 3]]],
-    target_image: In[Array[Array[float, 3], 256]],
-    target_image_h: In[int],
-    target_image_w: In[int]
+    layer_input: In[Array[Array[float]]], # The input usually coordinates of a grid/3d volume
+    layer_input_h: In[int], # The height of the input
+    layer_input_w: In[int], # The width of the input
+    layer_output: In[Array[Array[float]]], # The output of the layer - just initialized outside to get the shape correct
+    ws: In[Array[Array[Array[float]]]], # The weights array of shape N x weight_shape[0] x weight_shape[1]
+    bs: In[Array[Array[Array[float]]]], # The bias array of shape N x bias_shape[0]
+    target_image: In[Array[Array[float]]], # The target image tensor
+    target_image_h: In[int], # The height of the target image tensor
+    target_image_w: In[int], # The width of the target image tensor
+    num_weights: In[int], # The number of weights
+    weight_shapes: In[Array[Array[int]]], # The shapes of the weights [N x 2]
+    bias_shapes: In[Array[Array[int]]], # The shapes of the biases [N x 1]
+    intermediate_output_shapes: In[Array[Array[int]]], # The shapes of the intermediate outputs [N x 2]
+    intermediate_outputs: In[Array[Array[Array[float]]]] # The intermediate outputs of the layers
 ) -> float:
 
     i: int = 0
@@ -168,38 +20,95 @@ def mlp_fit(
     k: int = 0
     batch_num: int = 0
 
-    layouer_counter: int = 0
+    layer_counter: int = 0
     num_layers: int = 3
 
-    layer_input: Array[Array[float, 3], 256] # 256 x 3
-    copy_a_to_b(x, layer_input)
+    # For matvecmult
+    i_mult: int = 0
+    j_mult: int = 0
+    k_mult: int = 0
+
+    i_relu: int = 0
+    j_relu: int = 0
+
+    i_mse: int = 0
+    j_mse: int = 0
     
-    layer_output: Array[Array[float, 3], 256]
+    while (layer_counter < num_layers, max_iter := 1000):
 
-    weight: Array[Array[float, 3], 3] # 3 x 3
-    bias: Array[float, 3] # 3
+        # Multiply layer input with weights and add the bias
+        # if layer_counter == 0:
+        # matvecmult(ws[layer_counter], layer_input, weight_shapes[layer_counter][0], weight_shapes[layer_counter][1], layer_input_h, layer_input_w, intermediate_outputs[layer_counter])
 
-    while (layouer_counter < num_layers, max_iter := 3):
+        # ==============
+        # Matrix Vector Multiplication
+        # ==============
 
-        copy_a_to_b(ws[layouer_counter], weight) # 3 x 3
-        copy_a_to_b(bs[layouer_counter], bias) # 3
+        if layer_counter == 0:
 
-    #     # Multiply layer input with weights and add the bias
-    #     layer_output = matvecmult(weight, layer_input)
-    #     # layer_output = matvecadd(layer_output, bias)
+            i_mult = 0
+            j_mult = 0
+            k_mult = 0
 
-    #     # Apply ReLU activation function
-    #     # layer_output = relu(layer_output)
+            while (i_mult < weight_shapes[layer_counter][0], max_iter := 1000):
+                    j_mult = 0
+                    while (j_mult < weight_shapes[layer_counter][1], max_iter := 1000):
+                        k_mult = 0
+                        while (k_mult < layer_input_w, max_iter := 1000):
+                            intermediate_outputs[layer_counter][i_mult][j_mult] = intermediate_outputs[layer_counter][i_mult][j_mult] + ws[layer_counter][i_mult][j_mult] * layer_input[i_mult][k_mult]
+                            k_mult = k_mult + 1
+                        j_mult = j_mult + 1
+                    i_mult = i_mult + 1
+        
+        else: 
+        # TODO: Broken - segfault atm
 
-    #     # Update layer input
-    #     layer_input = layer_output
+            i_mult = 0
+            j_mult = 0
+            k_mult = 0
 
-    #     # Update layer counter
-        layouer_counter = layouer_counter + 1
+            while (i_mult < weight_shapes[layer_counter][0], max_iter := 1000):
+                    j_mult = 0
+                    while (j_mult < weight_shapes[layer_counter][1], max_iter := 1000):
+                        k_mult = 0
+                        while (k_mult < intermediate_output_shapes[layer_counter - 1][1], max_iter := 1000):
+                            intermediate_outputs[layer_counter][i_mult][j_mult] = intermediate_outputs[layer_counter][i_mult][j_mult] + ws[layer_counter][i_mult][j_mult] * intermediate_outputs[layer_counter - 1][i_mult][k_mult]
+                            k_mult = k_mult + 1
+                        j_mult = j_mult + 1
+                    i_mult = i_mult + 1
 
-    # Compute loss
-    # loss: float = mse(layer_input, target_image)
+        # ==============
+        # ReLU
+        # TODO: Broken - segfault atm
+        # ==============
+        i_relu = 0
+        j_relu = 0
+
+        while (i_relu < intermediate_output_shapes[layer_counter][0], max_iter := 1000):
+            j_relu = 0
+            while (j_relu < intermediate_output_shapes[layer_counter][1], max_iter := 1000):
+                if intermediate_outputs[layer_counter][i_relu][j_relu] > 0:
+                    intermediate_outputs[layer_counter][i_relu][j_relu] = intermediate_outputs[layer_counter][i_relu][j_relu]
+                else:
+                    intermediate_outputs[layer_counter][i_relu][j_relu] = 0
+                j_relu = j_relu + 1
+            i_relu = i_relu + 1
+
+        # Update layer counter
+        layer_counter = layer_counter + 1
+
+    # Compute loss - MSE
     loss: float = 0
+
+    i_mse = 0
+    j_mse = 0
+
+    while (i_mse < target_image_h, max_iter := 1000):
+        j_mse = 0
+        while (j_mse < target_image_w, max_iter := 1000):
+            loss = loss + (layer_input[i_mse][j_mse] - target_image[i_mse][j_mse]) * (layer_input[i_mse][j_mse] - target_image[i_mse][j_mse])
+            j_mse = j_mse + 1
+        i_mse = i_mse + 1
 
     return loss
 

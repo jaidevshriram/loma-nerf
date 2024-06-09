@@ -2,6 +2,7 @@ import ir
 ir.generate_asdl_file()
 import _asdl.loma as loma_ir
 import itertools
+import pdb
 
 # def flatten(nested_list : list):
 #     # recursively flatten a nested list
@@ -152,11 +153,19 @@ class IRMutator:
         return node
 
     def mutate_array_access(self, node):
-        return loma_ir.ArrayAccess(\
-            self.mutate_expr(node.array),
-            self.mutate_expr(node.index),
-            lineno = node.lineno,
-            t = node.t)
+
+        mutated_array = self.mutate_expr(node.array)
+        mutated_index = self.mutate_expr(node.index)
+
+        # pdb.set_trace()
+        try:
+            return loma_ir.ArrayAccess(\
+                mutated_array,
+                mutated_index,
+                lineno = node.lineno,
+                t = node.t)
+        except:
+            pdb.set_trace()
 
     def mutate_struct_access(self, node):
         return loma_ir.StructAccess(\
