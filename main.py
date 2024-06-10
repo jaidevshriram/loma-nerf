@@ -14,6 +14,10 @@ import numpy.ctypeslib as npct
 import matplotlib.pyplot as plt
 from PIL import Image
 import pdb
+import wandb
+
+# Set a seed for reproducibility
+np.random.seed(1234)
 
 def get_ndims(arr):
     """
@@ -172,9 +176,9 @@ def get_linear_weight(in_channels, out_channels):
 
     """
 
-    return np.random.randn(out_channels, in_channels).astype(np.float32).tolist()
+    return np.random.randn(in_channels, out_channels).astype(np.float32).tolist()
 
-def get_sample_mlp(in_channels=2, out_channels=3, num_layers=2):
+def get_sample_mlp(in_channels=2, out_channels=3, num_layers=2, filter_size=16):
     """
         @param in_channels: The number of input channels
         @param out_channels: The number of output channels
@@ -186,9 +190,15 @@ def get_sample_mlp(in_channels=2, out_channels=3, num_layers=2):
     weights = []
     biases = []
     for i in range(num_layers):
-        weights.append(get_linear_weight(in_channels, out_channels))
-        biases.append(np.zeros((out_channels)).astype(np.float32).tolist())
-        in_channels = out_channels
+
+        layer_out_channels = out_channels
+
+        if i != num_layers - 1:
+            layer_out_channels = filter_size
+
+        weights.append(get_linear_weight(in_channels, layer_out_channels))
+        biases.append(np.random.randn(layer_out_channels).astype(np.float32).tolist())
+        in_channels = layer_out_channels
 
     # Convert to list of lists
     weights = [w for w in weights]
@@ -221,15 +231,46 @@ def trace_mlp_and_get_intermediate_outputs(input, mlp):
         w = np.array(w)
         b = np.array(b)
 
-        # print(f"Layer {i} - w: {w.shape}, b: {b.shape}, input: {output.shape}")
-
-        output = np.matmul(output, w.T) + b[None, :]
+        print(f"Layer {i} - w: {w.shape}, b: {b.shape}, input: {output.shape}")
+        output = output @ w + b[None, :]
         shapes.append(output.shape)
 
         if i < len(mlp) - 1:
             output = np.maximum(output, 0)  # ReLU
 
     return shapes
+
+def evaluate_mlp(input, mlp):
+    """
+
+        @param input: The input to the MLP - (N, in_channels)
+        @param mlp: The MLP - List of weights and biases
+            example: [ 
+                2D array of weights of shape (in_channels, out_channels) for layer 1,
+                2D array of weights of shape (out_channels, out_channels) for layer 2,
+                ...
+            ]
+
+        @return: The output of the MLP
+    """
+
+    # Initialize the output
+    output = input
+
+    # Iterate over the layers
+    for i, (w, b) in enumerate(mlp):
+
+        w = np.array(w)
+        b = np.array(b)
+
+        output = output @ w + b[None, :]
+
+        if i < len(mlp) - 1:
+            output = np.maximum(output, 0)  # ReLU
+        elif i == len(mlp) - 1:
+            output = 1 / (1 + np.exp(-output))  # Sigmoid
+
+    return output
 
 def pad_array(arr):
     """
@@ -274,14 +315,62 @@ def pad_array(arr):
 
     return padded_array
 
+def convert_padded_array_to_regular(padded_array, og_shapes, level=0, indices=[]):
+    """
+        @param padded_array: The padded array
+        @param og_shape: The original shape of the array
+        @param level: The current level of the recursion
+        @param indices: The current indices of the recursion
+
+        @return: The original array
+    """
+
+    # pdb.set_trace()
+
+    arrs = []
+
+    for i, shape in enumerate(og_shapes):
+
+        arr = padded_array[i]
+
+        if len(shape) == 1:
+            arr = arr[:shape[0]]
+        elif len(shape) == 2:
+            arr = arr[:shape[0], :shape[1]]
+        else:
+            raise ValueError("Unsupported number of dimensions")
+
+        arrs.append(arr)
+
+    return arrs
+
 if __name__ == "__main__":
+
+    wandb.init(project="loma")
 
     with open("scripts/mlp_fit.py") as f:
         _, lib = compiler.compile(f.read(), target="c", output_filename="_code/mlp_fit")
 
+
     # Define the rendering function and the gradient function
     f = lib.mlp_fit
+    mult_a_b = lib.mult_a_b
     grad_f = lib.grad_mlp_fit
+
+    a = np.array([[1, 2], [3, 4], [5, 6]], dtype=np.float32) # 3 x 2
+    b = np.array([[100], [200]], dtype=np.float32) # 2 x 1
+    c = np.array([[0], [0], [0]], dtype=np.float32) # 3 x 1
+
+    c_a = convert_ndim_array_to_ndim_ctypes(a)
+    c_b = convert_ndim_array_to_ndim_ctypes(b)
+    c_c = convert_ndim_array_to_ndim_ctypes(c)
+    mult_a_b(c_a, a.shape[0], a.shape[1], c_b, b.shape[0], b.shape[1], c_c)
+
+    c = lp_lp_c_float_to_numpy(c_c, c.shape)
+
+    assert np.allclose(c, np.array([[500], [1100], [1700]], dtype=np.float32))
+
+    # exit()
 
     # Load a target image
     img_size = 16
@@ -303,6 +392,8 @@ if __name__ == "__main__":
     bs_padded = pad_array(bs)
 
     # Create the input to the MLP
+    num_encoding_functions = 5
+
     input_coords_grid = np.meshgrid(
         np.linspace(0, 1, img_size), np.linspace(0, 1, img_size)
     )
@@ -315,10 +406,10 @@ if __name__ == "__main__":
     intermediate_shapes = trace_mlp_and_get_intermediate_outputs(input_coords, list(zip(ws, bs)))
     intermediate_shapes = np.array(intermediate_shapes, dtype=np.int32)
     intermediate_shape_max_dims = np.max(intermediate_shapes)
-    intermediate_outputs = np.zeros((num_layers, intermediate_shape_max_dims, intermediate_shape_max_dims), dtype=np.float32)
+    intermediate_outputs = np.zeros((num_layers, intermediate_shape_max_dims, intermediate_shape_max_dims)).astype(np.float32)
 
     # Gradient descent loop
-    step_size = 1e-6
+    step_size = 1e-4
     loss = [
         f(
             # The input to the MLP
@@ -352,7 +443,7 @@ if __name__ == "__main__":
         )
     ]
 
-    NUM_STEPS = 1000
+    NUM_STEPS = 10000
 
     for i in range(NUM_STEPS):
 
@@ -453,6 +544,22 @@ if __name__ == "__main__":
         # print("Target: ", np.min(d_target), np.max(d_target), np.mean(d_target))
         # print("Intermediate outputs: ", np.min(d_intermediate_outputs), np.max(d_intermediate_outputs), np.mean(d_intermediate_outputs))
 
+        # Check if any nan in the gradients
+        if np.isnan(d_ws_padded).any() or np.isnan(d_bs_padded).any():
+            print("NaN in the gradients")
+
+            # Count the percentage of nan values in the gradients
+            nan_count = np.isnan(d_ws_padded).sum() + np.isnan(d_bs_padded).sum()
+            total_count = d_ws_padded.size + d_bs_padded.size
+            nan_percentage = nan_count / total_count
+            print(f"Percentage of NaN values in the gradients: {nan_percentage}")
+
+            # Convert nan to zero
+            # d_ws_padded = np.nan_to_num(d_ws_padded)
+            # d_bs_padded = np.nan_to_num(d_bs_padded)
+            pdb.set_trace()
+            break
+
         # Take optimizer steps for weights and biases
         ws_padded -= step_size * d_ws_padded
         bs_padded -= step_size * d_bs_padded
@@ -488,9 +595,55 @@ if __name__ == "__main__":
             convert_ndim_array_to_ndim_ctypes(intermediate_outputs),
         )
 
+        wandb.log({"loss": step_loss}, step=i)
         loss.append(step_loss)
 
-    plt.plot(np.arange(len(loss)), np.array(loss))
-    plt.ylabel("loss")
-    plt.xlabel("iteration")
-    plt.show()
+        if i % 250 == 0:
+
+            print(f"Iteration {i}, loss: {loss[-1]}")
+
+            # Obttain the weights and obtain the final prediction
+            ws = convert_padded_array_to_regular(ws_padded, [np.array(w).shape for w in ws])
+            bs = convert_padded_array_to_regular(bs_padded, [np.array(b).shape for b in bs])
+            final_pred = evaluate_mlp(input_coords, list(zip(ws, bs)))
+            final_pred_img = final_pred.reshape(img_size, img_size, 3)
+
+            fig, ax = plt.subplots(1, 3, figsize=(10, 5))
+
+            ax[0].plot(np.arange(len(loss)), np.array(loss))
+            ax[0].set_ylabel("loss")
+            ax[0].set_xlabel("iteration")
+
+            ax[1].imshow(target_color_gt.reshape(img_size, img_size, 3))
+            ax[1].set_title("Target image")
+
+            ax[2].imshow(final_pred_img)
+            ax[2].set_title("Predicted image")
+
+            # Save the figure
+            plt.savefig(f"logs/iter_{i}.png")
+
+            # Log the figure to wandb
+            wandb.log({"final_pred": [wandb.Image(plt)]}, step=i)
+
+            plt.close()
+
+    ws = convert_padded_array_to_regular(ws_padded, [np.array(w).shape for w in ws])
+    bs = convert_padded_array_to_regular(bs_padded, [np.array(b).shape for b in bs])
+    final_pred = evaluate_mlp(input_coords, list(zip(ws, bs)))
+    final_pred_img = final_pred.reshape(img_size, img_size, 3)
+
+    fig, ax = plt.subplots(1, 3, figsize=(10, 5))
+
+    ax[0].plot(np.arange(len(loss)), np.array(loss))
+    ax[0].set_ylabel("loss")
+    ax[0].set_xlabel("iteration")
+
+    ax[1].imshow(target_color_gt.reshape(img_size, img_size, 3))
+    ax[1].set_title("Target image")
+
+    ax[2].imshow(final_pred_img)
+    ax[2].set_title("Predicted image")
+
+    plt.savefig(f"logs/iter_{NUM_STEPS}.png")
+    plt.close()
