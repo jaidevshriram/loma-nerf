@@ -139,7 +139,7 @@ def mlp_fit(
 
     while (i_mse < target_image_h, max_iter := 500):
         j_mse = 0
-        while (j_mse < target_image_w, max_iter := 5):
+        while (j_mse < target_image_w, max_iter := 32):
             loss = loss + (intermediate_outputs[num_weights - 1][i_mse][j_mse] - target_image[i_mse][j_mse]) * (intermediate_outputs[num_weights - 1][i_mse][j_mse] - target_image[i_mse][j_mse])
             j_mse = j_mse + 1
         i_mse = i_mse + 1

@@ -16,8 +16,10 @@ from PIL import Image
 import pdb
 import wandb
 
+from pos_encoding import positional_encoding
+
 # Set a seed for reproducibility
-np.random.seed(1234)
+np.random.seed(215)
 
 def get_ndims(arr):
     """
@@ -128,6 +130,15 @@ def lp_lp_lp_c_float_to_numpy(lp_lp_lp_c_float, shape):
         @param shape: Tuple representing the shape of the 3D array (depth, rows, columns)
         
         @return: NumPy array
+
+        # Example usage:
+        # Assuming `lp_lp_lp_c_float` is a ctypes object of type LP_LP_LP_c_float
+        # and the shape of the 3D array is known
+        # lp_lp_lp_c_float = some_ctypes_function_that_returns_LP_LP_LP_c_float()
+        # shape = (depth, rows, columns)
+
+        # array = lp_lp_lp_c_float_to_numpy(lp_lp_lp_c_float, shape)
+        # print(array)
     """
     depth, rows, columns = shape
     array_3d = np.zeros(shape, dtype=np.float32)
@@ -156,16 +167,6 @@ def lp_lp_c_float_to_numpy(lp_lp_c_float, shape):
             array_2d[r, c] = lp_lp_c_float[r][c]
     
     return array_2d
-
-# Example usage:
-# Assuming `lp_lp_lp_c_float` is a ctypes object of type LP_LP_LP_c_float
-# and the shape of the 3D array is known
-# lp_lp_lp_c_float = some_ctypes_function_that_returns_LP_LP_LP_c_float()
-# shape = (depth, rows, columns)
-
-# array = lp_lp_lp_c_float_to_numpy(lp_lp_lp_c_float, shape)
-# print(array)
-
 
 def get_linear_weight(in_channels, out_channels):
     """
@@ -380,9 +381,19 @@ if __name__ == "__main__":
     ).reshape(-1, 3)  # Normalize to [0, 1]
     target_color_gt = np.ascontiguousarray(target_color_gt)
 
+    # Create the input to the MLP
+    num_encoding_functions = 5
+
+    input_coords_grid = np.meshgrid(
+        np.linspace(0, 1, img_size), np.linspace(0, 1, img_size)
+    )
+    input_coords_og = np.stack(input_coords_grid, axis=-1).reshape(-1, 2)
+
+    input_coords = positional_encoding(input_coords_og, num_functions=num_encoding_functions)
+
     # Create the MLP
     num_layers = 3
-    in_channels = 2
+    in_channels = input_coords.shape[1]
     out_channels = 3
     ws, bs = get_sample_mlp(in_channels=in_channels, out_channels=out_channels, num_layers=num_layers)
     ws_shape = np.array([np.array(w).shape for w in ws], dtype=np.int32)
@@ -390,14 +401,6 @@ if __name__ == "__main__":
 
     ws_padded = pad_array(ws)
     bs_padded = pad_array(bs)
-
-    # Create the input to the MLP
-    num_encoding_functions = 5
-
-    input_coords_grid = np.meshgrid(
-        np.linspace(0, 1, img_size), np.linspace(0, 1, img_size)
-    )
-    input_coords = np.stack(input_coords_grid, axis=-1).reshape(-1, 2)
 
     # Outputs - Initialize a tensor for the sake of it
     output_tensor = np.zeros((target_color_gt.shape[0], 3), dtype=np.float32)
@@ -443,7 +446,7 @@ if __name__ == "__main__":
         )
     ]
 
-    NUM_STEPS = 10000
+    NUM_STEPS = 50000
 
     for i in range(NUM_STEPS):
 
