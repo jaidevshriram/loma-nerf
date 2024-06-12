@@ -21,11 +21,12 @@ from pos_encoding import positional_encoding
 # Set a seed for reproducibility
 np.random.seed(215)
 
+
 def get_ndims(arr):
     """
-        @param arr: The input array, stored as a list of lists of lists of ... of floats
+    @param arr: The input array, stored as a list of lists of lists of ... of floats
 
-        @return: The number of dimensions of the array
+    @return: The number of dimensions of the array
     """
 
     ndims = 0
@@ -34,6 +35,7 @@ def get_ndims(arr):
         arr = arr[0]
 
     return ndims
+
 
 def convert_ndim_array_to_ndim_ctypes(arr):
 
@@ -45,20 +47,14 @@ def convert_ndim_array_to_ndim_ctypes(arr):
     if ndims == 1:
         type_of_arr = type(arr[0])
 
-        c_type_of_arr = {
-            int: ctypes.c_int,
-            float: ctypes.c_float
-        }[type_of_arr]
+        c_type_of_arr = {int: ctypes.c_int, float: ctypes.c_float}[type_of_arr]
 
         return (c_type_of_arr * len(arr))(*arr)
     elif ndims == 2:
 
         type_of_arr = type(arr[0][0])
 
-        c_type_of_arr = {
-            int: ctypes.c_int,
-            float: ctypes.c_float
-        }[type_of_arr]
+        c_type_of_arr = {int: ctypes.c_int, float: ctypes.c_float}[type_of_arr]
 
         # Define the pointer types
         LP_c_float = POINTER(c_type_of_arr)
@@ -67,7 +63,7 @@ def convert_ndim_array_to_ndim_ctypes(arr):
         # Convert the list of lists to a ctypes array
         num_rows = len(arr)
         num_cols = len(arr[0])
-        
+
         # Create an array of LP_c_float
         row_pointers = (LP_c_float * num_rows)()
 
@@ -85,11 +81,8 @@ def convert_ndim_array_to_ndim_ctypes(arr):
 
         type_of_arr = type(arr[0][0][0])
 
-        c_type_of_arr = {
-            int: ctypes.c_int,
-            float: ctypes.c_float
-        }[type_of_arr]
-        
+        c_type_of_arr = {int: ctypes.c_int, float: ctypes.c_float}[type_of_arr]
+
         # Define the pointer types
         LP_c_float = POINTER(c_type_of_arr)
         LP_LP_c_float = POINTER(LP_c_float)
@@ -122,13 +115,14 @@ def convert_ndim_array_to_ndim_ctypes(arr):
     else:
         raise ValueError("Unsupported number of dimensions")
 
+
 def lp_lp_lp_c_float_to_numpy(lp_lp_lp_c_float, shape):
     """
     Convert a LP_LP_LP_c_float to a NumPy array.
 
         @param lp_lp_lp_c_float: The LP_LP_LP_c_float object
         @param shape: Tuple representing the shape of the 3D array (depth, rows, columns)
-        
+
         @return: NumPy array
 
         # Example usage:
@@ -142,13 +136,14 @@ def lp_lp_lp_c_float_to_numpy(lp_lp_lp_c_float, shape):
     """
     depth, rows, columns = shape
     array_3d = np.zeros(shape, dtype=np.float32)
-    
+
     for d in range(depth):
         for r in range(rows):
             for c in range(columns):
                 array_3d[d, r, c] = lp_lp_lp_c_float[d][r][c]
-    
+
     return array_3d
+
 
 def lp_lp_c_float_to_numpy(lp_lp_c_float, shape):
     """
@@ -156,36 +151,38 @@ def lp_lp_c_float_to_numpy(lp_lp_c_float, shape):
 
         @param lp_lp_c_float: The LP_LP_c_float object
         @param shape: Tuple representing the shape of the 2D array (rows, columns)
-        
+
         @return: NumPy array
     """
     rows, columns = shape
     array_2d = np.zeros(shape, dtype=np.float32)
-    
+
     for r in range(rows):
         for c in range(columns):
             array_2d[r, c] = lp_lp_c_float[r][c]
-    
+
     return array_2d
+
 
 def get_linear_weight(in_channels, out_channels):
     """
-        @param in_channels: The number of input channels
-        @param out_channels: The number of output channels
+    @param in_channels: The number of input channels
+    @param out_channels: The number of output channels
 
-        @return: Randomly initialized weights of shape (out_channels, in_channels)
+    @return: Randomly initialized weights of shape (out_channels, in_channels)
 
     """
 
     return np.random.randn(in_channels, out_channels).astype(np.float32).tolist()
 
+
 def get_sample_mlp(in_channels=2, out_channels=3, num_layers=2, filter_size=16):
     """
-        @param in_channels: The number of input channels
-        @param out_channels: The number of output channels
-        @param num_layers: The number of layers
+    @param in_channels: The number of input channels
+    @param out_channels: The number of output channels
+    @param num_layers: The number of layers
 
-        @return: List of weights and biases
+    @return: List of weights and biases
     """
 
     weights = []
@@ -207,21 +204,22 @@ def get_sample_mlp(in_channels=2, out_channels=3, num_layers=2, filter_size=16):
 
     return weights, biases
 
+
 def trace_mlp_and_get_intermediate_outputs(input, mlp):
     """
 
-        @param input: The input to the MLP - (N, in_channels)
-        @param mlp: The MLP - List of weights and biases
-            example: [ 
-                2D array of weights of shape (in_channels, out_channels) for layer 1,
-                2D array of weights of shape (out_channels, out_channels) for layer 2,
-                ...
-            ]
+    @param input: The input to the MLP - (N, in_channels)
+    @param mlp: The MLP - List of weights and biases
+        example: [
+            2D array of weights of shape (in_channels, out_channels) for layer 1,
+            2D array of weights of shape (out_channels, out_channels) for layer 2,
+            ...
+        ]
 
-        @return: List of shapes of the intermediate outputs
+    @return: List of shapes of the intermediate outputs
     """
-    
-    shapes = [] # List of shapes of the intermediate outputs
+
+    shapes = []  # List of shapes of the intermediate outputs
 
     # Initialize the output
     output = input
@@ -241,18 +239,19 @@ def trace_mlp_and_get_intermediate_outputs(input, mlp):
 
     return shapes
 
+
 def evaluate_mlp(input, mlp):
     """
 
-        @param input: The input to the MLP - (N, in_channels)
-        @param mlp: The MLP - List of weights and biases
-            example: [ 
-                2D array of weights of shape (in_channels, out_channels) for layer 1,
-                2D array of weights of shape (out_channels, out_channels) for layer 2,
-                ...
-            ]
+    @param input: The input to the MLP - (N, in_channels)
+    @param mlp: The MLP - List of weights and biases
+        example: [
+            2D array of weights of shape (in_channels, out_channels) for layer 1,
+            2D array of weights of shape (out_channels, out_channels) for layer 2,
+            ...
+        ]
 
-        @return: The output of the MLP
+    @return: The output of the MLP
     """
 
     # Initialize the output
@@ -273,14 +272,15 @@ def evaluate_mlp(input, mlp):
 
     return output
 
+
 def pad_array(arr):
     """
 
-        @param arr: The input array, stored as a list of lists of lists of ... of floats
+    @param arr: The input array, stored as a list of lists of lists of ... of floats
 
-        @return: The padded array
+    @return: The padded array
 
-        This function will identify the largest size of this multi-dimensional array and pad the array to that size along all dimensions
+    This function will identify the largest size of this multi-dimensional array and pad the array to that size along all dimensions
     """
 
     ndims = get_ndims(arr)
@@ -294,7 +294,7 @@ def pad_array(arr):
         max_dims[level] = max(max_dims[level], len(arr))
         for a in arr:
             set_max_dims(a, max_dims, level + 1)
-        
+
     set_max_dims(arr, max_dims)
 
     # Obtain padding size
@@ -316,14 +316,15 @@ def pad_array(arr):
 
     return padded_array
 
+
 def convert_padded_array_to_regular(padded_array, og_shapes, level=0, indices=[]):
     """
-        @param padded_array: The padded array
-        @param og_shape: The original shape of the array
-        @param level: The current level of the recursion
-        @param indices: The current indices of the recursion
+    @param padded_array: The padded array
+    @param og_shape: The original shape of the array
+    @param level: The current level of the recursion
+    @param indices: The current indices of the recursion
 
-        @return: The original array
+    @return: The original array
     """
 
     # pdb.set_trace()
@@ -335,15 +336,16 @@ def convert_padded_array_to_regular(padded_array, og_shapes, level=0, indices=[]
         arr = padded_array[i]
 
         if len(shape) == 1:
-            arr = arr[:shape[0]]
+            arr = arr[: shape[0]]
         elif len(shape) == 2:
-            arr = arr[:shape[0], :shape[1]]
+            arr = arr[: shape[0], : shape[1]]
         else:
             raise ValueError("Unsupported number of dimensions")
 
         arrs.append(arr)
 
     return arrs
+
 
 if __name__ == "__main__":
 
@@ -352,15 +354,14 @@ if __name__ == "__main__":
     with open("scripts/mlp_fit.py") as f:
         _, lib = compiler.compile(f.read(), target="c", output_filename="_code/mlp_fit")
 
-
     # Define the rendering function and the gradient function
     f = lib.mlp_fit
     mult_a_b = lib.mult_a_b
     grad_f = lib.grad_mlp_fit
 
-    a = np.array([[1, 2], [3, 4], [5, 6]], dtype=np.float32) # 3 x 2
-    b = np.array([[100], [200]], dtype=np.float32) # 2 x 1
-    c = np.array([[0], [0], [0]], dtype=np.float32) # 3 x 1
+    a = np.array([[1, 2], [3, 4], [5, 6]], dtype=np.float32)  # 3 x 2
+    b = np.array([[100], [200]], dtype=np.float32)  # 2 x 1
+    c = np.array([[0], [0], [0]], dtype=np.float32)  # 3 x 1
 
     c_a = convert_ndim_array_to_ndim_ctypes(a)
     c_b = convert_ndim_array_to_ndim_ctypes(b)
@@ -376,9 +377,9 @@ if __name__ == "__main__":
     # Load a target image
     img_size = 16
     target_image = Image.open("data/warren.jpeg").resize((img_size, img_size))
-    target_color_gt = (
-        np.array(target_image, dtype=np.float32) / 255.0
-    ).reshape(-1, 3)  # Normalize to [0, 1]
+    target_color_gt = (np.array(target_image, dtype=np.float32) / 255.0).reshape(
+        -1, 3
+    )  # Normalize to [0, 1]
     target_color_gt = np.ascontiguousarray(target_color_gt)
 
     # Create the input to the MLP
@@ -389,13 +390,17 @@ if __name__ == "__main__":
     )
     input_coords_og = np.stack(input_coords_grid, axis=-1).reshape(-1, 2)
 
-    input_coords = positional_encoding(input_coords_og, num_functions=num_encoding_functions)
+    input_coords = positional_encoding(
+        input_coords_og, num_functions=num_encoding_functions
+    )
 
     # Create the MLP
     num_layers = 3
     in_channels = input_coords.shape[1]
     out_channels = 3
-    ws, bs = get_sample_mlp(in_channels=in_channels, out_channels=out_channels, num_layers=num_layers)
+    ws, bs = get_sample_mlp(
+        in_channels=in_channels, out_channels=out_channels, num_layers=num_layers
+    )
     ws_shape = np.array([np.array(w).shape for w in ws], dtype=np.int32)
     bs_shape = np.array([[len(b), 1] for b in bs], dtype=np.int32)
 
@@ -406,10 +411,14 @@ if __name__ == "__main__":
     output_tensor = np.zeros((target_color_gt.shape[0], 3), dtype=np.float32)
 
     # Intermediate outputs
-    intermediate_shapes = trace_mlp_and_get_intermediate_outputs(input_coords, list(zip(ws, bs)))
+    intermediate_shapes = trace_mlp_and_get_intermediate_outputs(
+        input_coords, list(zip(ws, bs))
+    )
     intermediate_shapes = np.array(intermediate_shapes, dtype=np.int32)
     intermediate_shape_max_dims = np.max(intermediate_shapes)
-    intermediate_outputs = np.zeros((num_layers, intermediate_shape_max_dims, intermediate_shape_max_dims)).astype(np.float32)
+    intermediate_outputs = np.zeros(
+        (num_layers, intermediate_shape_max_dims, intermediate_shape_max_dims)
+    ).astype(np.float32)
 
     # Gradient descent loop
     step_size = 1e-4
@@ -532,7 +541,7 @@ if __name__ == "__main__":
             # The derivative of the loss w.r.t. the intermediate outputs
             convert_ndim_array_to_ndim_ctypes(d_intermediate_outputs),
             # The return value
-            loss[-1]
+            loss[-1],
         )
 
         # Print gradient stats - min, max, mean
@@ -606,8 +615,12 @@ if __name__ == "__main__":
             print(f"Iteration {i}, loss: {loss[-1]}")
 
             # Obttain the weights and obtain the final prediction
-            ws = convert_padded_array_to_regular(ws_padded, [np.array(w).shape for w in ws])
-            bs = convert_padded_array_to_regular(bs_padded, [np.array(b).shape for b in bs])
+            ws = convert_padded_array_to_regular(
+                ws_padded, [np.array(w).shape for w in ws]
+            )
+            bs = convert_padded_array_to_regular(
+                bs_padded, [np.array(b).shape for b in bs]
+            )
             final_pred = evaluate_mlp(input_coords, list(zip(ws, bs)))
             final_pred_img = final_pred.reshape(img_size, img_size, 3)
 
