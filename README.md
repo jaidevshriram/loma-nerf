@@ -2,5 +2,4 @@
 NeRF implemented in Loma (https://github.com/BachiLi/loma_public)
 
 ## Todo
-- [ ] Make sure Array of floats return a derivative; now it returns NoneType
-- [ ] 
+- [ ] Ensure that you don't compute a loss in the 0 opacity regions of the training
