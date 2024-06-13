@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import pdb
 import wandb
+from tqdm.auto import tqdm
 
 from pos_encoding import positional_encoding_2d
 
@@ -230,7 +231,7 @@ def trace_mlp_and_get_intermediate_outputs(input, mlp):
         w = np.array(w)
         b = np.array(b)
 
-        print(f"Layer {i} - w: {w.shape}, b: {b.shape}, input: {output.shape}")
+        # print(f"Layer {i} - w: {w.shape}, b: {b.shape}, input: {output.shape}")
         output = output @ w + b[None, :]
         shapes.append(output.shape)
 
@@ -375,8 +376,8 @@ if __name__ == "__main__":
     # exit()
 
     # Load a target image
-    img_size = 16  # Updated to 32
-    chunk_size = 8  # Chunk size to process the data in parts
+    img_size = 256  # Updated to 32
+    chunk_size = 16  # Chunk size to process the data in parts
     target_image = Image.open("data/warren.jpeg").resize((img_size, img_size))
     target_color_gt = (np.array(target_image, dtype=np.float32) / 255.0).reshape(
         -1, 3
@@ -411,15 +412,6 @@ if __name__ == "__main__":
     # Outputs - Initialize a tensor for the sake of it
     output_tensor = np.zeros((target_color_gt.shape[0], 3), dtype=np.float32)
 
-    # Intermediate outputs
-    intermediate_shapes = trace_mlp_and_get_intermediate_outputs(
-        input_coords, list(zip(ws, bs))
-    )
-    intermediate_shapes = np.array(intermediate_shapes, dtype=np.int32)
-    intermediate_shape_max_dims = np.max(intermediate_shapes)
-    intermediate_outputs = np.zeros(
-        (num_layers, intermediate_shape_max_dims, intermediate_shape_max_dims)
-    ).astype(np.float32)
 
     # Gradient descent loop
     step_size = 1e-4
@@ -430,13 +422,23 @@ if __name__ == "__main__":
 
     for i in range(NUM_STEPS):
 
-        for chunk_idx in range(num_chunks):
+        for chunk_idx in tqdm(range(num_chunks), leave=False):
             chunk_start = chunk_idx * chunk_size**2
             chunk_end = min((chunk_idx + 1) * chunk_size**2, img_size**2)
 
             chunk_input_coords = input_coords[chunk_start:chunk_end]
             chunk_target_color_gt = target_color_gt[chunk_start:chunk_end]
             chunk_output_tensor = output_tensor[chunk_start:chunk_end]
+
+            # Intermediate outputs
+            intermediate_shapes = trace_mlp_and_get_intermediate_outputs(
+                chunk_input_coords, list(zip(ws, bs))
+            )
+            intermediate_shapes = np.array(intermediate_shapes, dtype=np.int32)
+            intermediate_shape_max_dims = np.max(intermediate_shapes)
+            intermediate_outputs = np.zeros(
+                (num_layers, intermediate_shape_max_dims, intermediate_shape_max_dims)
+            ).astype(np.float32)
 
             d_input_coords = np.zeros_like(chunk_input_coords, dtype=np.float32)
             d_input_height = ctypes.c_int(chunk_input_coords.shape[0])
