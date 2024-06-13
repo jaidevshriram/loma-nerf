@@ -128,7 +128,6 @@ def nerf_evaluate_and_march(
 
     #     # ==============
     #     # ReLU
-         # TODO: Use ReLU for density, and sigmoid for color
     #     # ==============
 
         # Only apply RELU to the intermediate outputs

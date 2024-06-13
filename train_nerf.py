@@ -160,6 +160,28 @@ class AdamOptimizer:
 
         return params
 
+def compute_psnr(
+    img1,
+    img2,
+    max_val=1.0,
+):
+    """
+    Compute the PSNR between two images.
+
+    Args:
+        img1: The first image.
+        img2: The second image.
+        max_val: The maximum value of the image.
+
+    Returns:
+        The PSNR between the two images.
+    """
+
+    mse = np.mean((img1 - img2) ** 2)
+    psnr = 20 * np.log10(max_val / np.sqrt(mse))
+
+    return psnr
+
 if __name__ == "__main__":
 
     wandb.init(project="loma-nerf-fixed")
@@ -167,7 +189,7 @@ if __name__ == "__main__":
     # Config
     img_size = 512
     num_iterations = 50000
-    num_samples_along_ray = 4
+    num_samples_along_ray = 30
     mlp_max_size = 256  # This is the maximum size that our MLP can process in Loma
     max_img_chunk_size = 256 / num_samples_along_ray
     chunk_size_x = np.floor(max_img_chunk_size**0.5)
@@ -220,6 +242,7 @@ if __name__ == "__main__":
 
     # Keep track of the losses
     losses = []
+    psnrs = []
 
     # Optimizer
     optimizer = AdamOptimizer(learning_rate=step_size)
@@ -228,8 +251,8 @@ if __name__ == "__main__":
     for i in tqdm(range(num_iterations)):
 
         # Choose a random pose and image
-        # train_idx = np.random.randint(len(dataset))
-        train_idx = 0
+        train_idx = np.random.randint(len(dataset))
+        # train_idx = 0
 
         train_data = dataset[train_idx]
         train_img = train_data["image"]
@@ -540,6 +563,13 @@ if __name__ == "__main__":
             # Save the losses
             # np.save("models/losses.npy", losses)
 
+            # train_idx = np.random.randint(len(dataset))
+            train_idx = 2
+
+            train_data = dataset[train_idx]
+            train_img = train_data["image"]
+            train_pose = train_data["pose"]
+
             ray_origins, ray_directions = get_rays(img_size, img_size, K, train_pose)
 
             output_img = np.zeros((ray_origins.shape[0], 3))
@@ -648,6 +678,10 @@ if __name__ == "__main__":
 
             rgb = output_img.reshape(img_size, img_size, 3)
 
+            psnr = compute_psnr(train_img, rgb)
+
+            psnrs.append(psnr)
+
             # Save the image
             fig, ax = plt.subplots(1, 3, figsize=(15, 5))
 
@@ -660,8 +694,8 @@ if __name__ == "__main__":
             # ax[2].imshow(depth, cmap="turbo")
             # ax[2].set_title("Depth")
 
-            ax[2].plot(losses)
-            ax[2].set_title("Loss")
+            ax[2].plot(psnrs)
+            ax[2].set_title("PSNR")
 
             plt.savefig(f"logs_3d/{i}.png")
 

@@ -1,5 +1,6 @@
-logs_3d/
-logs_2d/
+logs_3d_single_view/*
+logs_3d/*
+logs_2d/*
 data/
 logs/
 outputs/
