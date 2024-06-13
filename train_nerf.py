@@ -165,7 +165,7 @@ if __name__ == "__main__":
     wandb.init(project="loma-nerf-fixed")
 
     # Config
-    img_size = 64
+    img_size = 512
     num_iterations = 50000
     num_samples_along_ray = 4
     mlp_max_size = 256  # This is the maximum size that our MLP can process in Loma

@@ -16,7 +16,7 @@ from PIL import Image
 import pdb
 import wandb
 
-from pos_encoding import positional_encoding
+from pos_encoding import positional_encoding_2d
 
 # Set a seed for reproducibility
 np.random.seed(215)
@@ -375,8 +375,8 @@ if __name__ == "__main__":
     # exit()
 
     # Load a target image
-    img_size = 32  # Updated to 32
-    chunk_size = 4  # Chunk size to process the data in parts
+    img_size = 16  # Updated to 32
+    chunk_size = 8  # Chunk size to process the data in parts
     target_image = Image.open("data/warren.jpeg").resize((img_size, img_size))
     target_color_gt = (np.array(target_image, dtype=np.float32) / 255.0).reshape(
         -1, 3
@@ -391,7 +391,7 @@ if __name__ == "__main__":
     )
     input_coords_og = np.stack(input_coords_grid, axis=-1).reshape(-1, 2)
 
-    input_coords = positional_encoding(
+    input_coords = positional_encoding_2d(
         input_coords_og, num_functions=num_encoding_functions
     )
 

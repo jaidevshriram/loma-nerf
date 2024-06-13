@@ -167,3 +167,7 @@ cython_debug/
 #.idea/
 
 */lego/
+*/logs_2d/
+*/logs_3d/
+*/_code/
+*/loma_public/__pycache__/
