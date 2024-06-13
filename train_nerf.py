@@ -129,6 +129,37 @@ def run_mlp(
 
     return input
 
+
+class AdamOptimizer:
+    def __init__(self, learning_rate=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8):
+        self.learning_rate = learning_rate
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.epsilon = epsilon
+        self.m = None
+        self.v = None
+        self.t = 0
+
+    def update(self, params, grads):
+        if self.m is None:
+            self.m = [np.zeros_like(param) for param in params]
+        if self.v is None:
+            self.v = [np.zeros_like(param) for param in params]
+
+        self.t += 1
+        lr_t = self.learning_rate * (np.sqrt(1 - self.beta2 ** self.t) / (1 - self.beta1 ** self.t))
+
+        for i, (param, grad) in enumerate(zip(params, grads)):
+            self.m[i] = self.beta1 * self.m[i] + (1 - self.beta1) * grad
+            self.v[i] = self.beta2 * self.v[i] + (1 - self.beta2) * (grad ** 2)
+
+            m_hat = self.m[i] / (1 - self.beta1 ** self.t)
+            v_hat = self.v[i] / (1 - self.beta2 ** self.t)
+
+            params[i] -= lr_t * m_hat / (np.sqrt(v_hat) + self.epsilon)
+
+        return params
+
 if __name__ == "__main__":
 
     wandb.init(project="loma-nerf")
@@ -141,13 +172,13 @@ if __name__ == "__main__":
     max_img_chunk_size = 256 / num_samples_along_ray
     chunk_size_x = np.floor(max_img_chunk_size**0.5)
     chunk_size = chunk_size_x**2
-    num_encoding_functions = 0 # TODO: set this higher
+    num_encoding_functions = 5 # TODO: set this higher
     num_layers_mlp = 3
-    mlp_filter_size = 16
+    mlp_filter_size = 30
     out_channels = 4
     near = 2.0
     far = 6.0
-    step_size = 1e-3
+    step_size = 5e-4
 
     # Create the dataset
     dataset = NeRFDataset("data/lego", img_size=img_size, phase="train")
@@ -190,6 +221,9 @@ if __name__ == "__main__":
     # Keep track of the losses
     losses = []
 
+    # Optimizer
+    optimizer = AdamOptimizer(learning_rate=step_size)
+
     # Main training loop
     for i in tqdm(range(num_iterations)):
 
@@ -200,9 +234,10 @@ if __name__ == "__main__":
         train_data = dataset[train_idx]
         train_img = train_data["image"]
         train_pose = train_data["pose"]
-        focal_length = train_data["focal_length"]
+        focal_length = train_data["focal_length"] # TODO: Fix this
+        # focal_length = 1.0
 
-        train_img = np.ones_like(train_img) * 1.0
+        # train_img = np.ones_like(train_img) * 0.5
 
         K = np.array([[focal_length, 0, 0.5], [0, focal_length, 0.5], [0, 0, 1]]).astype(
             np.float32
@@ -220,7 +255,7 @@ if __name__ == "__main__":
 
         for chunk_idx in range(num_chunks):
             chunk_start = int(chunk_idx * chunk_size)
-            chunk_end = int(min((chunk_idx + 1) * chunk_size, img_size))
+            chunk_end = int(min((chunk_idx + 1) * chunk_size, ray_origins.shape[0]))
 
             # Get the subset of the chunk rays and gt
             chunk_ray_origins = ray_origins[chunk_start:chunk_end]  # N x 3
@@ -244,8 +279,6 @@ if __name__ == "__main__":
             sample_points_encoded = positional_encoding_3d(
                 sample_points, num_functions=num_encoding_functions
             )
-
-            # pdb.set_trace()
 
             dists = np.concatenate(
                 (
@@ -424,6 +457,7 @@ if __name__ == "__main__":
             # Get the gradients
             d_ws_padded = lp_lp_lp_c_float_to_numpy(d_ws, ws_padded.shape)
             d_bs_padded = lp_lp_c_float_to_numpy(d_bs, bs_padded.shape)
+            accumulated_color = lp_lp_c_float_to_numpy(accumulated_color_c, accumulated_color.shape)
 
             # Check if any nan in the gradients
             if np.isnan(d_ws_padded).any() or np.isnan(d_bs_padded).any():
@@ -437,8 +471,9 @@ if __name__ == "__main__":
                 pass
 
             # Update the weights
-            ws_padded -= step_size * d_ws_padded
-            bs_padded -= step_size * d_bs_padded
+            # ws_padded -= step_size * d_ws_padded
+            # bs_padded -= step_size * d_bs_padded
+            ws_padded, bs_padded = optimizer.update([ws_padded, bs_padded], [d_ws_padded, d_bs_padded])
 
             wandb.log({"loss": loss})
 
@@ -466,9 +501,32 @@ if __name__ == "__main__":
                 # pdb.set_trace()
                 # break
 
+            if i % 25 == 0:
+                predicted = accumulated_color.reshape(img_size, img_size, 3)
+
+                # Recompute loss
+                loss = (accumulated_color - chunk_target_gt) ** 2
+                loss = loss.sum()
+
+                print("Loss: ", loss)
+
+                # # Save the image
+                fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+
+                ax[0].imshow(train_img)
+                ax[0].set_title("Target")
+
+                ax[1].imshow(predicted)
+                ax[1].set_title("Prediction")
+
+                ax[2].plot(losses)
+                ax[2].set_title("Loss")
+
+                # plt.savefig(f"logs_3d/{i}.png")
+
             # print("Comparing with target image...", chunk_target_gt.sum())
             # pdb.set_trace()
-            break
+            # break
    
         print("Iteration: ", i, " Loss: ", sum(losses[-num_chunks:])/num_chunks, num_chunks, " chunks")
     
@@ -482,38 +540,109 @@ if __name__ == "__main__":
 
             ray_origins, ray_directions = get_rays(img_size, img_size, K, train_pose)
 
-            depth_values = np.linspace(near, far, num_samples_along_ray)
+            output_img = np.zeros((ray_origins.shape[0], 3))
 
-            sample_points = (
-                ray_origins[:, None, :]
-                + ray_directions[:, None, :] * depth_values[None, :, None]
-            )
+            num_chunks = int(np.ceil(img_size / chunk_size))
 
-            sample_points_encoded = positional_encoding_3d(
-                sample_points, num_functions=num_encoding_functions
-            )
+            for chunk_idx in range(num_chunks):
+                chunk_start = int(chunk_idx * chunk_size)
+                chunk_end = int(min((chunk_idx + 1) * chunk_size, ray_origins.shape[0]))
 
-            ws = convert_padded_array_to_regular(ws_padded, [np.array(w).shape for w in ws])
-            bs = convert_padded_array_to_regular(bs_padded, [np.array(b).shape for b in bs])
+                chunk_ray_origins = ray_origins[chunk_start:chunk_end]
+                chunk_ray_directions = ray_directions[chunk_start:chunk_end]
+                chunk_target_gt = target_gt[chunk_start:chunk_end]
 
-            predictions = run_mlp(sample_points_encoded.reshape(-1, in_channels), ws, bs)
-            predictions = predictions.reshape(ray_origins.shape[0], num_samples_along_ray, 4)
+                depth_values = np.linspace(near, far, num_samples_along_ray)
+
+                sample_points = (
+                    chunk_ray_origins[:, None, :]
+                    + chunk_ray_directions[:, None, :] * depth_values[None, :, None]
+                )
+
+                sample_points_encoded = positional_encoding_3d(
+                    sample_points, num_functions=num_encoding_functions
+                )
+
+                dists = np.concatenate(
+                    (
+                        depth_values[1:] - depth_values[:-1],
+                        np.ones_like(depth_values[:1]) * 1e8,
+                    )
+                )[None, :].repeat(chunk_ray_origins.shape[0], axis=0)
+
+                sample_rgba = np.zeros((chunk_ray_origins.shape[0], num_samples_along_ray, 4))
+                alpha = np.zeros((chunk_ray_origins.shape[0], num_samples_along_ray))
+                cumprod_alpha = np.zeros((chunk_ray_origins.shape[0], num_samples_along_ray))
+                weights_samples = np.zeros((chunk_ray_origins.shape[0], num_samples_along_ray))
+                accumulated_color = np.zeros((chunk_ray_origins.shape[0], 3))
+
+                accumulated_color_c = convert_ndim_array_to_ndim_ctypes(accumulated_color)
+                
+                
+                _ = nerf_evaluate_and_march(
+                        # The input to the MLP
+                        convert_ndim_array_to_ndim_ctypes(sample_points_encoded.reshape(-1, in_channels)),
+                        # The height of the input
+                        ctypes.c_int(sample_points_encoded.shape[0] * sample_points_encoded.shape[1]),
+                        # The width of the input
+                        ctypes.c_int(in_channels),
+                        # The weights array of shape N x weight_shape[0] x weight_shape[1]
+                        convert_ndim_array_to_ndim_ctypes(ws_padded),
+                        # The bias array of shape N x bias_shape[0]
+                        convert_ndim_array_to_ndim_ctypes(bs_padded),
+                        # The target image tensor
+                        convert_ndim_array_to_ndim_ctypes(chunk_target_gt),
+                        # The height of the target image tensor
+                        ctypes.c_int(chunk_target_gt.shape[0]),
+                        # The width of the target image tensor
+                        ctypes.c_int(chunk_target_gt.shape[1]),
+                        # The number of weights
+                        num_layers_mlp,
+                        # The shapes of the weights [N x 2]
+                        convert_ndim_array_to_ndim_ctypes(ws_shape),
+                        # The shapes of the biases [N x 1]
+                        convert_ndim_array_to_ndim_ctypes(bs_shape),
+                        # The shapes of the intermediate outputs [N x 2]
+                        convert_ndim_array_to_ndim_ctypes(intermediate_shapes),
+                        # The intermediate outputs of the layers
+                        convert_ndim_array_to_ndim_ctypes(intermediate_outputs),
+                        # The image sample RGBA tensor
+                        convert_ndim_array_to_ndim_ctypes(sample_rgba),
+                        # The number of samples along the ray
+                        ctypes.c_int(num_samples_along_ray),
+                        # The distance between samples
+                        convert_ndim_array_to_ndim_ctypes(dists),
+                        # The alpha value array 
+                        convert_ndim_array_to_ndim_ctypes(alpha),
+                        # Cumprod alpha array
+                        convert_ndim_array_to_ndim_ctypes(cumprod_alpha),
+                        # The set of weights for the density
+                        convert_ndim_array_to_ndim_ctypes(weights_samples),
+                        # The accumulated color
+                        accumulated_color_c
+                )
+                
+                accumulated_color = lp_lp_c_float_to_numpy(accumulated_color_c, accumulated_color.shape)
+
+                output_img[chunk_start:chunk_end] = accumulated_color
 
             # Volume render now
-            sigma = predictions[:, :, 3]
-            rgb = predictions[:, :, :3]
-            dists = np.concatenate(
-                (
-                    depth_values[1:] - depth_values[:-1],
-                    np.ones_like(depth_values[:1]) * 1e8,
-                )
-            )[None, :].repeat(ray_origins.shape[0], axis=0)
+            # sigma = predictions[:, :, 3]
+            # rgb = predictions[:, :, :3]
+            # dists = np.concatenate(
+            #     (
+            #         depth_values[1:] - depth_values[:-1],
+            #         np.ones_like(depth_values[:1]) * 1e8,
+            #     )
+            # )[None, :].repeat(ray_origins.shape[0], axis=0)
 
-            alpha = 1.0 - np.exp(-sigma * dists)
-            weights = alpha * np.cumprod(1.0 - alpha + 1e-10, axis=1)
+            # alpha = 1.0 - np.exp(-sigma * dists)
+            # weights = alpha * np.cumprod(1.0 - alpha + 1e-10, axis=1)
 
-            rgb = (weights[:, :, None] * rgb).sum(axis=1).reshape(img_size, img_size, 3)
-            depth = (weights * depth_values).sum(axis=1).reshape(img_size, img_size)
+            # rgb = (weights[:, :, None] * rgb).sum(axis=1).reshape(img_size, img_size, 3)
+            # depth = (weights * depth_values).sum(axis=1).reshape(img_size, img_size)
+
+            rgb = output_img.reshape(img_size, img_size, 3)
 
             # Save the image
             fig, ax = plt.subplots(1, 3, figsize=(15, 5))

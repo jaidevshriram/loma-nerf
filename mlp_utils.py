@@ -172,7 +172,7 @@ def get_linear_weight(in_channels, out_channels):
 
     """
 
-    return np.random.randn(in_channels, out_channels).astype(np.float32).tolist()
+    return np.random.normal(size=(in_channels, out_channels), loc=0, scale=(2/in_channels) ** 0.5).astype(np.float32).tolist()
 
 def get_sample_mlp(in_channels=2, out_channels=3, num_layers=2, filter_size=16):
     """
@@ -193,7 +193,8 @@ def get_sample_mlp(in_channels=2, out_channels=3, num_layers=2, filter_size=16):
             layer_out_channels = filter_size
 
         weights.append(get_linear_weight(in_channels, layer_out_channels))
-        biases.append(np.random.randn(layer_out_channels).astype(np.float32).tolist())
+        biases.append(np.random.normal(size=layer_out_channels, loc=0, scale=0.5).astype(np.float32).tolist())
+        # biases.append(np.zeros(layer_out_channels, dtype=np.float32).tolist())
         in_channels = layer_out_channels
 
     # Convert to list of lists
