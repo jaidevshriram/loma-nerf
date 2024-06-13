@@ -375,7 +375,8 @@ if __name__ == "__main__":
     # exit()
 
     # Load a target image
-    img_size = 16
+    img_size = 32  # Updated to 32
+    chunk_size = 4  # Chunk size to process the data in parts
     target_image = Image.open("data/warren.jpeg").resize((img_size, img_size))
     target_color_gt = (np.array(target_image, dtype=np.float32) / 255.0).reshape(
         -1, 3
@@ -422,199 +423,114 @@ if __name__ == "__main__":
 
     # Gradient descent loop
     step_size = 1e-4
-    loss = [
-        f(
-            # The input to the MLP
-            convert_ndim_array_to_ndim_ctypes(input_coords),
-            # The height of the input
-            ctypes.c_int(input_coords.shape[0]),
-            # The width of the input
-            ctypes.c_int(input_coords.shape[1]),
-            # The output of the layer - just initialized outside to get the shape correct
-            convert_ndim_array_to_ndim_ctypes(output_tensor),
-            # The weights array of shape N x weight_shape[0] x weight_shape[1]
-            convert_ndim_array_to_ndim_ctypes(ws_padded),
-            # The bias array of shape N x bias_shape[0]
-            convert_ndim_array_to_ndim_ctypes(bs_padded),
-            # The target image tensor
-            convert_ndim_array_to_ndim_ctypes(target_color_gt),
-            # The height of the target image tensor
-            ctypes.c_int(target_color_gt.shape[0]),
-            # The width of the target image tensor
-            ctypes.c_int(target_color_gt.shape[1]),
-            # The number of weights
-            num_layers,
-            # The shapes of the weights [N x 2]
-            convert_ndim_array_to_ndim_ctypes(ws_shape),
-            # The shapes of the biases [N x 1]
-            convert_ndim_array_to_ndim_ctypes(bs_shape),
-            # The shapes of the intermediate outputs [N x 2]
-            convert_ndim_array_to_ndim_ctypes(intermediate_shapes),
-            # The intermediate outputs of the layers
-            convert_ndim_array_to_ndim_ctypes(intermediate_outputs),
-        )
-    ]
+    loss = []
 
     NUM_STEPS = 50000
+    num_chunks = int(np.ceil(img_size**2 / chunk_size**2))  # Number of chunks
 
     for i in range(NUM_STEPS):
 
-        d_input_coords = np.zeros_like(input_coords, dtype=np.float32)
-        d_input_height = ctypes.c_int(input_coords.shape[0])
-        d_input_width = ctypes.c_int(input_coords.shape[1])
-        d_output = np.zeros_like(output_tensor, dtype=np.float32)
-        d_ws = np.zeros_like(ws_padded, dtype=np.float32)
-        d_bs = np.zeros_like(bs_padded, dtype=np.float32)
-        d_target = np.zeros_like(target_color_gt, dtype=np.float32)
-        d_target_height = ctypes.c_int(target_color_gt.shape[0])
-        d_target_width = ctypes.c_int(target_color_gt.shape[1])
-        d_num_layers = ctypes.c_int(num_layers)
-        d_ws_shape = np.zeros_like(ws_shape, dtype=np.int32)
-        d_bs_shape = np.zeros_like(bs_shape, dtype=np.int32)
-        d_intermediate_shapes = np.zeros_like(intermediate_shapes, dtype=np.int32)
-        d_intermediate_outputs = np.zeros_like(intermediate_outputs, dtype=np.float32)
+        for chunk_idx in range(num_chunks):
+            chunk_start = chunk_idx * chunk_size**2
+            chunk_end = min((chunk_idx + 1) * chunk_size**2, img_size**2)
 
-        # Make all the non array derivatives - ctypes.byref(...)
-        d_input_height = ctypes.byref(d_input_height)
-        d_input_width = ctypes.byref(d_input_width)
-        d_target_height = ctypes.byref(d_target_height)
-        d_target_width = ctypes.byref(d_target_width)
-        d_num_layers = ctypes.byref(d_num_layers)
-        d_ws = convert_ndim_array_to_ndim_ctypes(d_ws)
-        d_bs = convert_ndim_array_to_ndim_ctypes(d_bs)
+            chunk_input_coords = input_coords[chunk_start:chunk_end]
+            chunk_target_color_gt = target_color_gt[chunk_start:chunk_end]
+            chunk_output_tensor = output_tensor[chunk_start:chunk_end]
 
-        grad_f(
-            # The input to the MLP
-            convert_ndim_array_to_ndim_ctypes(input_coords),
-            # The derivative of the loss w.r.t. the input
-            convert_ndim_array_to_ndim_ctypes(d_input_coords),
-            # The height of the input
-            ctypes.c_int(input_coords.shape[0]),
-            # The derivative of the loss w.r.t. the height of the input
-            d_input_height,
-            # The width of the input
-            ctypes.c_int(input_coords.shape[1]),
-            # The derivative of the loss w.r.t. the width of the input
-            d_input_width,
-            # The output of the layer - just initialized outside to get the shape correct
-            convert_ndim_array_to_ndim_ctypes(output_tensor),
-            # The derivative of the loss w.r.t. the output
-            convert_ndim_array_to_ndim_ctypes(d_output),
-            # The weights array of shape N x weight_shape[0] x weight_shape[1]
-            convert_ndim_array_to_ndim_ctypes(ws_padded),
-            # The derivative of the loss w.r.t. the weights
-            d_ws,
-            # The bias array of shape N x bias_shape[0]
-            convert_ndim_array_to_ndim_ctypes(bs_padded),
-            # The derivative of the loss w.r.t. the biases
-            d_bs,
-            # The target image tensor
-            convert_ndim_array_to_ndim_ctypes(target_color_gt),
-            # The derivative of the loss w.r.t. the target
-            convert_ndim_array_to_ndim_ctypes(d_target),
-            # The height of the target image tensor
-            ctypes.c_int(target_color_gt.shape[0]),
-            # The derivative of the loss w.r.t. the height of the target image tensor
-            d_target_height,
-            # The width of the target image tensor
-            ctypes.c_int(target_color_gt.shape[1]),
-            # The derivative of the loss w.r.t. the width of the target image tensor
-            d_target_width,
-            # The number of weights
-            num_layers,
-            # The derivative of the loss w.r.t. the number of weights
-            d_num_layers,
-            # The shapes of the weights [N x 2]
-            convert_ndim_array_to_ndim_ctypes(ws_shape),
-            # The derivative of the loss w.r.t. the shapes of the weights
-            convert_ndim_array_to_ndim_ctypes(d_ws_shape),
-            # The shapes of the biases [N x 1]
-            convert_ndim_array_to_ndim_ctypes(bs_shape),
-            # The derivative of the loss w.r.t. the shapes of the biases
-            convert_ndim_array_to_ndim_ctypes(d_bs_shape),
-            # The shapes of the intermediate outputs [N x 2]
-            convert_ndim_array_to_ndim_ctypes(intermediate_shapes),
-            # The derivative of the loss w.r.t. the shapes of the intermediate outputs
-            convert_ndim_array_to_ndim_ctypes(d_intermediate_shapes),
-            # The intermediate outputs of the layers
-            convert_ndim_array_to_ndim_ctypes(intermediate_outputs),
-            # The derivative of the loss w.r.t. the intermediate outputs
-            convert_ndim_array_to_ndim_ctypes(d_intermediate_outputs),
-            # The return value
-            loss[-1],
-        )
+            d_input_coords = np.zeros_like(chunk_input_coords, dtype=np.float32)
+            d_input_height = ctypes.c_int(chunk_input_coords.shape[0])
+            d_input_width = ctypes.c_int(chunk_input_coords.shape[1])
+            d_output = np.zeros_like(chunk_output_tensor, dtype=np.float32)
+            d_ws = np.zeros_like(ws_padded, dtype=np.float32)
+            d_bs = np.zeros_like(bs_padded, dtype=np.float32)
+            d_target = np.zeros_like(chunk_target_color_gt, dtype=np.float32)
+            d_target_height = ctypes.c_int(chunk_target_color_gt.shape[0])
+            d_target_width = ctypes.c_int(chunk_target_color_gt.shape[1])
+            d_num_layers = ctypes.c_int(num_layers)
+            d_ws_shape = np.zeros_like(ws_shape, dtype=np.int32)
+            d_bs_shape = np.zeros_like(bs_shape, dtype=np.int32)
+            d_intermediate_shapes = np.zeros_like(intermediate_shapes, dtype=np.int32)
+            d_intermediate_outputs = np.zeros_like(
+                intermediate_outputs, dtype=np.float32
+            )
 
-        # Print gradient stats - min, max, mean
-        d_ws_padded = lp_lp_lp_c_float_to_numpy(d_ws, ws_padded.shape)
-        d_bs_padded = lp_lp_c_float_to_numpy(d_bs, bs_padded.shape)
+            d_input_height = ctypes.byref(d_input_height)
+            d_input_width = ctypes.byref(d_input_width)
+            d_target_height = ctypes.byref(d_target_height)
+            d_target_width = ctypes.byref(d_target_width)
+            d_num_layers = ctypes.byref(d_num_layers)
+            d_ws = convert_ndim_array_to_ndim_ctypes(d_ws)
+            d_bs = convert_ndim_array_to_ndim_ctypes(d_bs)
 
-        # print(f"Gradient stats for all derivatives:")
-        # print("Input coords: ", np.min(d_input_coords), np.max(d_input_coords), np.mean(d_input_coords))
-        # print("Output tensor: ", np.min(d_output), np.max(d_output), np.mean(d_output))
-        # print("Weights: ", np.min(d_ws_padded), np.max(d_ws_padded), np.mean(d_ws_padded))
-        # print("Biases: ", np.min(d_bs_padded), np.max(d_bs_padded), np.mean(d_bs_padded))
-        # print("Target: ", np.min(d_target), np.max(d_target), np.mean(d_target))
-        # print("Intermediate outputs: ", np.min(d_intermediate_outputs), np.max(d_intermediate_outputs), np.mean(d_intermediate_outputs))
+            grad_f(
+                convert_ndim_array_to_ndim_ctypes(chunk_input_coords),
+                convert_ndim_array_to_ndim_ctypes(d_input_coords),
+                ctypes.c_int(chunk_input_coords.shape[0]),
+                d_input_height,
+                ctypes.c_int(chunk_input_coords.shape[1]),
+                d_input_width,
+                convert_ndim_array_to_ndim_ctypes(chunk_output_tensor),
+                convert_ndim_array_to_ndim_ctypes(d_output),
+                convert_ndim_array_to_ndim_ctypes(ws_padded),
+                d_ws,
+                convert_ndim_array_to_ndim_ctypes(bs_padded),
+                d_bs,
+                convert_ndim_array_to_ndim_ctypes(chunk_target_color_gt),
+                convert_ndim_array_to_ndim_ctypes(d_target),
+                ctypes.c_int(chunk_target_color_gt.shape[0]),
+                d_target_height,
+                ctypes.c_int(chunk_target_color_gt.shape[1]),
+                d_target_width,
+                num_layers,
+                d_num_layers,
+                convert_ndim_array_to_ndim_ctypes(ws_shape),
+                convert_ndim_array_to_ndim_ctypes(d_ws_shape),
+                convert_ndim_array_to_ndim_ctypes(bs_shape),
+                convert_ndim_array_to_ndim_ctypes(d_bs_shape),
+                convert_ndim_array_to_ndim_ctypes(intermediate_shapes),
+                convert_ndim_array_to_ndim_ctypes(d_intermediate_shapes),
+                convert_ndim_array_to_ndim_ctypes(intermediate_outputs),
+                convert_ndim_array_to_ndim_ctypes(d_intermediate_outputs),
+                loss[-1] if loss else ctypes.c_float(0),
+            )
 
-        # Check if any nan in the gradients
-        if np.isnan(d_ws_padded).any() or np.isnan(d_bs_padded).any():
-            print("NaN in the gradients")
+            d_ws_padded = lp_lp_lp_c_float_to_numpy(d_ws, ws_padded.shape)
+            d_bs_padded = lp_lp_c_float_to_numpy(d_bs, bs_padded.shape)
 
-            # Count the percentage of nan values in the gradients
-            nan_count = np.isnan(d_ws_padded).sum() + np.isnan(d_bs_padded).sum()
-            total_count = d_ws_padded.size + d_bs_padded.size
-            nan_percentage = nan_count / total_count
-            print(f"Percentage of NaN values in the gradients: {nan_percentage}")
+            if np.isnan(d_ws_padded).any() or np.isnan(d_bs_padded).any():
+                print("NaN in the gradients")
+                nan_count = np.isnan(d_ws_padded).sum() + np.isnan(d_bs_padded).sum()
+                total_count = d_ws_padded.size + d_bs_padded.size
+                nan_percentage = nan_count / total_count
+                print(f"Percentage of NaN values in the gradients: {nan_percentage}")
+                pdb.set_trace()
+                break
 
-            # Convert nan to zero
-            # d_ws_padded = np.nan_to_num(d_ws_padded)
-            # d_bs_padded = np.nan_to_num(d_bs_padded)
-            pdb.set_trace()
-            break
+            ws_padded -= step_size * d_ws_padded
+            bs_padded -= step_size * d_bs_padded
 
-        # Take optimizer steps for weights and biases
-        ws_padded -= step_size * d_ws_padded
-        bs_padded -= step_size * d_bs_padded
+            step_loss = f(
+                convert_ndim_array_to_ndim_ctypes(chunk_input_coords),
+                ctypes.c_int(chunk_input_coords.shape[0]),
+                ctypes.c_int(chunk_input_coords.shape[1]),
+                convert_ndim_array_to_ndim_ctypes(chunk_output_tensor),
+                convert_ndim_array_to_ndim_ctypes(ws_padded),
+                convert_ndim_array_to_ndim_ctypes(bs_padded),
+                convert_ndim_array_to_ndim_ctypes(chunk_target_color_gt),
+                ctypes.c_int(chunk_target_color_gt.shape[0]),
+                ctypes.c_int(chunk_target_color_gt.shape[1]),
+                num_layers,
+                convert_ndim_array_to_ndim_ctypes(ws_shape),
+                convert_ndim_array_to_ndim_ctypes(bs_shape),
+                convert_ndim_array_to_ndim_ctypes(intermediate_shapes),
+                convert_ndim_array_to_ndim_ctypes(intermediate_outputs),
+            )
 
-        step_loss = f(
-            # The input to the MLP
-            convert_ndim_array_to_ndim_ctypes(input_coords),
-            # The height of the input
-            ctypes.c_int(input_coords.shape[0]),
-            # The width of the input
-            ctypes.c_int(input_coords.shape[1]),
-            # The output of the layer - just initialized outside to get the shape correct
-            convert_ndim_array_to_ndim_ctypes(output_tensor),
-            # The weights array of shape N x weight_shape[0] x weight_shape[1]
-            convert_ndim_array_to_ndim_ctypes(ws_padded),
-            # The bias array of shape N x bias_shape[0]
-            convert_ndim_array_to_ndim_ctypes(bs_padded),
-            # The target image tensor
-            convert_ndim_array_to_ndim_ctypes(target_color_gt),
-            # The height of the target image tensor
-            ctypes.c_int(target_color_gt.shape[0]),
-            # The width of the target image tensor
-            ctypes.c_int(target_color_gt.shape[1]),
-            # The number of weights
-            num_layers,
-            # The shapes of the weights [N x 2]
-            convert_ndim_array_to_ndim_ctypes(ws_shape),
-            # The shapes of the biases [N x 1]
-            convert_ndim_array_to_ndim_ctypes(bs_shape),
-            # The shapes of the intermediate outputs [N x 2]
-            convert_ndim_array_to_ndim_ctypes(intermediate_shapes),
-            # The intermediate outputs of the layers
-            convert_ndim_array_to_ndim_ctypes(intermediate_outputs),
-        )
-
-        wandb.log({"loss": step_loss}, step=i)
-        loss.append(step_loss)
+            loss.append(step_loss)
 
         if i % 250 == 0:
-
             print(f"Iteration {i}, loss: {loss[-1]}")
-
-            # Obttain the weights and obtain the final prediction
             ws = convert_padded_array_to_regular(
                 ws_padded, [np.array(w).shape for w in ws]
             )
@@ -625,7 +541,6 @@ if __name__ == "__main__":
             final_pred_img = final_pred.reshape(img_size, img_size, 3)
 
             fig, ax = plt.subplots(1, 3, figsize=(10, 5))
-
             ax[0].plot(np.arange(len(loss)), np.array(loss))
             ax[0].set_ylabel("loss")
             ax[0].set_xlabel("iteration")
@@ -636,12 +551,8 @@ if __name__ == "__main__":
             ax[2].imshow(final_pred_img)
             ax[2].set_title("Predicted image")
 
-            # Save the figure
             plt.savefig(f"logs/iter_{i}.png")
-
-            # Log the figure to wandb
             wandb.log({"final_pred": [wandb.Image(plt)]}, step=i)
-
             plt.close()
 
     ws = convert_padded_array_to_regular(ws_padded, [np.array(w).shape for w in ws])
@@ -650,16 +561,12 @@ if __name__ == "__main__":
     final_pred_img = final_pred.reshape(img_size, img_size, 3)
 
     fig, ax = plt.subplots(1, 3, figsize=(10, 5))
-
     ax[0].plot(np.arange(len(loss)), np.array(loss))
     ax[0].set_ylabel("loss")
     ax[0].set_xlabel("iteration")
-
     ax[1].imshow(target_color_gt.reshape(img_size, img_size, 3))
     ax[1].set_title("Target image")
-
     ax[2].imshow(final_pred_img)
     ax[2].set_title("Predicted image")
-
     plt.savefig(f"logs/iter_{NUM_STEPS}.png")
     plt.close()
