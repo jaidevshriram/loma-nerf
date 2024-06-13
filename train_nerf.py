@@ -162,10 +162,10 @@ class AdamOptimizer:
 
 if __name__ == "__main__":
 
-    wandb.init(project="loma-nerf")
+    wandb.init(project="loma-nerf-fixed")
 
     # Config
-    img_size = 8
+    img_size = 64
     num_iterations = 50000
     num_samples_along_ray = 4
     mlp_max_size = 256  # This is the maximum size that our MLP can process in Loma
@@ -249,7 +249,7 @@ if __name__ == "__main__":
         target_gt = train_img.reshape(-1, 3)
 
         # Compute chunks
-        num_chunks = int(np.ceil(img_size / chunk_size))
+        num_chunks = int(np.ceil((img_size * img_size) / chunk_size))
 
         # assert num_chunks > 1, "The chunk size is too large."
 
@@ -501,33 +501,35 @@ if __name__ == "__main__":
                 # pdb.set_trace()
                 # break
 
-            if i % 25 == 0:
-                predicted = accumulated_color.reshape(img_size, img_size, 3)
+            # if i % 25 == 0:
+            #     predicted = accumulated_color.reshape(img_size, img_size, 3)
 
-                # Recompute loss
-                loss = (accumulated_color - chunk_target_gt) ** 2
-                loss = loss.sum()
+            #     # Recompute loss
+            #     loss = (accumulated_color - chunk_target_gt) ** 2
+            #     loss = loss.sum()
 
-                print("Loss: ", loss)
+            #     print("Loss: ", loss)
 
-                # # Save the image
-                fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+            #     # # Save the image
+            #     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
 
-                ax[0].imshow(train_img)
-                ax[0].set_title("Target")
+            #     ax[0].imshow(train_img)
+            #     ax[0].set_title("Target")
 
-                ax[1].imshow(predicted)
-                ax[1].set_title("Prediction")
+            #     ax[1].imshow(predicted)
+            #     ax[1].set_title("Prediction")
 
-                ax[2].plot(losses)
-                ax[2].set_title("Loss")
+            #     ax[2].plot(losses)
+            #     ax[2].set_title("Loss")
 
-                # plt.savefig(f"logs_3d/{i}.png")
+            #     # plt.savefig(f"logs_3d/{i}.png")
 
             # print("Comparing with target image...", chunk_target_gt.sum())
             # pdb.set_trace()
             # break
    
+        # pdb.set_trace()
+
         print("Iteration: ", i, " Loss: ", sum(losses[-num_chunks:])/num_chunks, num_chunks, " chunks")
     
         if i % 25 == 0:
@@ -542,7 +544,9 @@ if __name__ == "__main__":
 
             output_img = np.zeros((ray_origins.shape[0], 3))
 
-            num_chunks = int(np.ceil(img_size / chunk_size))
+            num_chunks = int(np.ceil((img_size * img_size) / chunk_size))
+
+            assert num_chunks > 1, "The chunk size is too large."
 
             for chunk_idx in range(num_chunks):
                 chunk_start = int(chunk_idx * chunk_size)
