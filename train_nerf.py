@@ -56,7 +56,7 @@ def get_rays(height, width, normalized_K, c2w_poses):
     T = c2w_poses[:3, 3]
 
     ray_origins = T[None, :].repeat(directions.shape[0], 0)
-    ray_directions = directions @ R
+    ray_directions = directions @ R.T
 
     # Normalzie the ray directions
     return ray_origins, ray_directions
@@ -187,7 +187,7 @@ if __name__ == "__main__":
     wandb.init(project="loma-nerf-fixed")
 
     # Config
-    img_size = 512
+    img_size = 64
     num_iterations = 50000
     num_samples_along_ray = 30
     mlp_max_size = 256  # This is the maximum size that our MLP can process in Loma
